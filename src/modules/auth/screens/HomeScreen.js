@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { getProfile, deleteSession } from '../db/database';
+import DrawerMenu from '../../../shared/components/DrawerMenu';
 
 export default function HomeScreen({ navigation, route }) {
   const { user } = route.params || {};
   const [perfil, setPerfil] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -58,6 +60,16 @@ export default function HomeScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      {/* Drawer lateral */}
+      <DrawerMenu
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        navigation={navigation}
+        perfil={perfil}
+        userId={user?.id}
+        onLogout={handleLogout}
+      />
+
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {/* ── Greeting ── */}
@@ -74,9 +86,12 @@ export default function HomeScreen({ navigation, route }) {
               <Text style={styles.greetName}>{nombre}</Text>
             </View>
           </TouchableOpacity>
+
+          {/* Botón hamburguesa — abre el drawer */}
           <TouchableOpacity
             style={styles.menuBtn}
-            onPress={() => navigation.navigate('Profile', { userId: user?.id })}
+            onPress={() => setDrawerOpen(true)}
+            activeOpacity={0.7}
           >
             <View style={styles.menuLine} />
             <View style={styles.menuLine} />
@@ -141,11 +156,6 @@ export default function HomeScreen({ navigation, route }) {
           </TouchableOpacity>
         ))}
 
-        {/* ── Cerrar sesión ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>🚪 Cerrar sesión</Text>
-        </TouchableOpacity>
-
       </ScrollView>
     </View>
   );
@@ -186,7 +196,4 @@ const styles = StyleSheet.create({
   navIcon:     { fontSize: 20, marginRight: 12 },
   navLabel:    { flex: 1, fontSize: 14, fontWeight: '600', color: 'white' },
   navArrow:    { fontSize: 22, color: '#555' },
-
-  logoutBtn:   { marginTop: 20, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' },
-  logoutText:  { color: '#f87171', fontSize: 14, fontWeight: '600' },
 });
