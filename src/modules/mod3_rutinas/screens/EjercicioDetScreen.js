@@ -1,17 +1,137 @@
-import React from 'react';
-import PlaceholderBase from '../../../shared/components/PlaceholderBase';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar } from 'react-native';
+import { useRutinas } from '../../../context/RutinasContext';
 
 export default function EjercicioDetScreen({ navigation }) {
+  const {
+    ejercicioActual, desdeDia, rutinaActual, rutinas,
+    agregarEjercicioADia, crearEjercicioPersonalizado,
+  } = useRutinas();
+
+  const base = ejercicioActual || {};
+  const rutina = rutinas.find(r => r.id === rutinaActual?.id) || rutinaActual;
+  const esNuevo = !!base.isNew;
+  const esCustom = !!base.isCustom;
+
+  const [nombre, setNombre] = useState(base.nombre || '');
+  const [categoria, setCategoria] = useState(base.categoria || '');
+  const [descripcion, setDescripcion] = useState(base.descripcion || '');
+  const [series, setSeries] = useState(String(base.series || 3));
+  const [repsMin, setRepsMin] = useState(String(base.repsMin || base.reps || 8));
+  const [repsMax, setRepsMax] = useState(String(base.repsMax || ((base.reps || 8) + 4)));
+  const [descanso, setDescanso] = useState(String(base.descanso || 90));
+  const [unidad, setUnidad] = useState(base.unidad || 'kg');
+  const [articulacion, setArticulacion] = useState(base.articulacion || 'Multiarticular');
+  const [lateralidad, setLateralidad] = useState(base.lateralidad || 'Bilateral');
+
+  const nombreFinal = esCustom ? (nombre.trim() || 'Nuevo ejercicio') : base.nombre;
+  const categoriaFinal = esCustom ? (categoria.trim() || 'Personalizado') : base.categoria;
+  const puedeGuardar = !esCustom || nombre.trim().length > 0;
+
+  function buildEjercicio() {
+    return {
+      ...base,
+      nombre: nombreFinal,
+      categoria: categoriaFinal,
+      descripcion,
+      series: Number(series) || 3,
+      reps: Number(repsMin) || 8,
+      repsMin,
+      repsMax,
+      descanso: Number(descanso) || 90,
+      unidad,
+      articulacion,
+      lateralidad,
+      isCustom: esCustom,
+      icon: esCustom ? '✏️' : (base.icon || '💪'),
+    };
+  }
+
+  function guardarPersonalizado() {
+    if (!puedeGuardar) return;
+    const nuevo = crearEjercicioPersonalizado(buildEjercicio());
+    if (desdeDia && rutina) {
+      agregarEjercicioADia(rutina.id, desdeDia, nuevo, { series: Number(series), repsMin, repsMax, descanso: Number(descanso), unidad, articulacion, lateralidad });
+      navigation.navigate('DiaRutina');
+    } else {
+      navigation.navigate('Ejercicios');
+    }
+  }
+
+  function agregarADia() {
+    if (!desdeDia || !rutina || !puedeGuardar) return;
+    agregarEjercicioADia(rutina.id, desdeDia, buildEjercicio(), { series: Number(series), repsMin, repsMax, descanso: Number(descanso), unidad, articulacion, lateralidad });
+    navigation.navigate('DiaRutina');
+  }
+
   return (
-    <PlaceholderBase
-      navigation={navigation}
-      icon="🔍" title="Detalle de ejercicio" badge="RF12–RF13"
-      items={[
-        { icon: '🎥', title: 'Video demostrativo',    sub: 'Disponible en módulo real' },
-        { icon: '💪', title: 'Grupo muscular',        sub: 'Pecho principal · Tríceps secundario' },
-        { icon: '⏱️', title: 'Tiempos recomendados', sub: 'Serie: 60s · Descanso: 120s' },
-        { icon: '🔗', title: 'Tipo',                  sub: 'Multiarticular bilateral' },
-      ]}
-    />
+    <View style={s.container}>
+      <StatusBar barStyle="light-content" />
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.navigate('Ejercicios')} style={s.backBtn}><Text style={s.backText}>←</Text></TouchableOpacity>
+        <Text style={s.headerTitle} numberOfLines={1}>{nombreFinal}</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+        <View style={s.badge}><Text style={s.badgeText}>{esCustom ? 'RF14 — Ejercicio personalizado' : 'RF12–RF13 — Detalle ejercicio'}</Text></View>
+
+        {!esCustom && (
+          <View style={s.videoBox}>
+            <Text style={s.play}>▶</Text>
+            <Text style={s.videoTitle}>Video demostrativo</Text>
+            <Text style={s.videoSub}>{base.videoUrl ? 'Video disponible' : 'Placeholder visual · pendiente de recurso'}</Text>
+          </View>
+        )}
+
+        {esCustom && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Datos del ejercicio</Text>
+            <Text style={s.label}>Nombre *</Text>
+            <TextInput style={s.input} value={nombre} onChangeText={setNombre} placeholder="Ej. Face pull con polea" placeholderTextColor="#555" />
+            <Text style={s.label}>Grupo muscular</Text>
+            <TextInput style={s.input} value={categoria} onChangeText={setCategoria} placeholder="Ej. Hombros, Core, Brazos" placeholderTextColor="#555" />
+            <Text style={s.label}>Descripción</Text>
+            <TextInput style={[s.input, { minHeight: 80, textAlignVertical: 'top' }]} value={descripcion} onChangeText={setDescripcion} multiline placeholder="Técnica o indicaciones opcionales" placeholderTextColor="#555" />
+          </View>
+        )}
+
+        <View style={s.card}>
+          <View style={s.titleRow}><Text style={s.bigIcon}>{esCustom ? '✏️' : base.icon || '💪'}</Text><View style={{ flex: 1 }}><Text style={s.name}>{nombreFinal}</Text><Text style={s.sub}>{categoriaFinal} · {articulacion} · {lateralidad}</Text></View></View>
+          {!esCustom && <Text style={s.description}>{base.descripcion || 'Descripción del ejercicio pendiente.'}</Text>}
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Configurar para rutina</Text>
+          <View style={s.grid}>
+            <Field label="Series" value={series} setValue={setSeries} />
+            <Field label="Rep min" value={repsMin} setValue={setRepsMin} />
+            <Field label="Rep max" value={repsMax} setValue={setRepsMax} />
+            <Field label="Descanso" value={descanso} setValue={setDescanso} />
+          </View>
+          <Text style={s.label}>Unidad de peso</Text>
+          <OptionRow items={['kg','lb','placa']} value={unidad} setValue={setUnidad} labels={{ placa: 'Placa #' }} color="orange" />
+          <Text style={s.label}>Tipo de articulación</Text>
+          <OptionRow items={['Monoarticular','Multiarticular']} value={articulacion} setValue={setArticulacion} labels={{ Monoarticular: 'Mono', Multiarticular: 'Multi' }} color="purple" />
+          <Text style={s.label}>Lateralidad</Text>
+          <OptionRow items={['Unilateral','Bilateral']} value={lateralidad} setValue={setLateralidad} color="teal" />
+          <View style={s.preview}><Text style={s.previewText}>{series} series × {repsMin}–{repsMax} reps · {descanso}s descanso · {unidad === 'placa' ? 'Placa #' : unidad}</Text></View>
+        </View>
+
+        {esCustom && !desdeDia && <TouchableOpacity style={[s.btnPrimary, !puedeGuardar && s.btnDisabled]} disabled={!puedeGuardar} onPress={guardarPersonalizado}><Text style={s.btnPrimaryText}>Guardar en mis ejercicios</Text></TouchableOpacity>}
+        {desdeDia && <TouchableOpacity style={[s.btnPrimary, !puedeGuardar && s.btnDisabled]} disabled={!puedeGuardar} onPress={esNuevo ? guardarPersonalizado : agregarADia}><Text style={s.btnPrimaryText}>➕ Agregar a {desdeDia}</Text></TouchableOpacity>}
+      </ScrollView>
+    </View>
   );
 }
+
+function Field({ label, value, setValue }) {
+  return <View style={{ flex: 1 }}><Text style={s.label}>{label}</Text><TextInput style={s.inputCenter} keyboardType="numeric" value={String(value)} onChangeText={setValue} /></View>;
+}
+function OptionRow({ items, value, setValue, labels = {}, color }) {
+  return <View style={s.optRow}>{items.map(v => <TouchableOpacity key={v} style={[s.opt, value === v && (color === 'teal' ? s.optTeal : color === 'orange' ? s.optOrange : s.optPurple)]} onPress={() => setValue(v)}><Text style={[s.optText, value === v && (color === 'teal' ? s.optTextTeal : color === 'orange' ? s.optTextOrange : s.optTextPurple)]}>{labels[v] || v}</Text></TouchableOpacity>)}</View>;
+}
+
+const s = StyleSheet.create({
+  container:{flex:1,backgroundColor:'#1a1a22'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:52,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#2a2a35'},backBtn:{width:36,height:36,borderRadius:10,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},backText:{color:'white',fontSize:18},headerTitle:{fontSize:16,fontWeight:'800',color:'white',flex:1,textAlign:'center',marginHorizontal:8},body:{padding:16,paddingBottom:40},badge:{alignSelf:'flex-start',backgroundColor:'rgba(249,115,22,.12)',borderWidth:1,borderColor:'rgba(249,115,22,.3)',borderRadius:20,paddingHorizontal:10,paddingVertical:3,marginBottom:14},badgeText:{fontSize:10,fontWeight:'700',color:'#f97316'},videoBox:{height:150,borderRadius:16,backgroundColor:'#11111b',borderWidth:1,borderColor:'#333',alignItems:'center',justifyContent:'center',marginBottom:12},play:{fontSize:38,color:'#7c6fcd'},videoTitle:{color:'white',fontWeight:'800',marginTop:6},videoSub:{color:'#888',fontSize:11,marginTop:2},card:{backgroundColor:'#2a2a35',borderRadius:14,padding:15,borderWidth:1,borderColor:'#333',marginBottom:12},cardTitle:{fontSize:14,fontWeight:'800',color:'white',marginBottom:12},label:{fontSize:10,color:'#888',fontWeight:'800',textTransform:'uppercase',letterSpacing:.4,marginBottom:5,marginTop:8},input:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:12,color:'white',fontSize:14},inputCenter:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:10,color:'white',fontSize:14,textAlign:'center'},titleRow:{flexDirection:'row',alignItems:'center',gap:12},bigIcon:{fontSize:32},name:{fontSize:18,fontWeight:'800',color:'white'},sub:{fontSize:12,color:'#888',marginTop:2},description:{fontSize:13,color:'#ccc',lineHeight:20,marginTop:12},grid:{flexDirection:'row',gap:8},optRow:{flexDirection:'row',gap:8,flexWrap:'wrap',marginBottom:4},opt:{paddingHorizontal:12,paddingVertical:8,borderRadius:9,backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333'},optText:{fontSize:12,color:'#888',fontWeight:'700'},optPurple:{borderColor:'#7c6fcd',backgroundColor:'rgba(124,111,205,.12)'},optTeal:{borderColor:'#5eead4',backgroundColor:'rgba(94,234,212,.1)'},optOrange:{borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.12)'},optTextPurple:{color:'#7c6fcd'},optTextTeal:{color:'#5eead4'},optTextOrange:{color:'#f97316'},preview:{backgroundColor:'rgba(124,111,205,.1)',borderRadius:10,padding:10,marginTop:12,borderWidth:1,borderColor:'rgba(124,111,205,.2)'},previewText:{color:'#ccc',fontSize:12,textAlign:'center'},btnPrimary:{backgroundColor:'#7c6fcd',borderRadius:12,padding:16,alignItems:'center',marginTop:4},btnDisabled:{opacity:.45},btnPrimaryText:{color:'white',fontWeight:'800',fontSize:15}
+});
