@@ -3,6 +3,21 @@ import { EJERCICIOS_DATA, RUTINAS_INICIALES } from '../modules/mod3_rutinas/data
 
 const RutinasContext = createContext(null);
 
+export const GRUPOS_MUSCULARES = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core', 'Cardio'];
+
+export function esCardio(ejercicio) {
+  return (ejercicio?.categoria || '').toLowerCase() === 'cardio';
+}
+
+export function esCore(ejercicio) {
+  const cat = (ejercicio?.categoria || '').toLowerCase();
+  return cat === 'core' || cat === 'abdomen' || cat === 'abdominales';
+}
+
+export function etiquetaCategoria(cat) {
+  return cat === 'Core' ? 'Core / Abdomen' : cat;
+}
+
 const EJERCICIOS_PERSONALIZADOS_INICIAL = [
   {
     id: 'c1', nombre: 'Face pull con polea', categoria: 'Hombros', icon: '🎯', sets: '3x15',
@@ -26,6 +41,44 @@ function crearConteoDias(dias) {
   return dias.reduce((acc, dia) => ({ ...acc, [dia]: 0 }), {});
 }
 
+function normalizarConfig(ejercicio, config = {}) {
+  if (esCardio(ejercicio)) {
+    return {
+      duracionMin: Number(config.duracionMin ?? ejercicio.duracionMin ?? ejercicio.reps ?? 30) || 30,
+      unidad: 'tiempo',
+      series: 1,
+      repsMin: '',
+      repsMax: '',
+      descanso: 0,
+      articulacion: null,
+      lateralidad: null,
+    };
+  }
+
+  const base = {
+    series: Number(config.series ?? ejercicio.series ?? 3) || 3,
+    repsMin: String(config.repsMin ?? ejercicio.repsMin ?? ejercicio.reps ?? 8),
+    repsMax: String(config.repsMax ?? ejercicio.repsMax ?? ((ejercicio.reps || 8) + 4)),
+    descanso: Number(config.descanso ?? ejercicio.descanso ?? 90) || 0,
+    unidad: config.unidad ?? ejercicio.unidad ?? 'kg',
+  };
+
+  if (esCore(ejercicio)) {
+    return { ...base, articulacion: null, lateralidad: null };
+  }
+
+  return {
+    ...base,
+    articulacion: config.articulacion ?? ejercicio.articulacion ?? 'Multiarticular',
+    lateralidad: config.lateralidad ?? ejercicio.lateralidad ?? 'Bilateral',
+  };
+}
+
+function calcularSets(data) {
+  if (esCardio(data)) return `${data.duracionMin || 30} min`;
+  return `${data.series || 3}x${data.repsMin || 8}-${data.repsMax || 12}`;
+}
+
 export function RutinasProvider({ children }) {
   const [rutinas, setRutinas] = useState(RUTINAS_INICIALES);
   const [rutinaActual, setRutinaActual] = useState(RUTINAS_INICIALES[0] || null);
@@ -46,6 +99,7 @@ export function RutinasProvider({ children }) {
     };
     setRutinas(prev => [nueva, ...prev]);
     setRutinaActual(nueva);
+    setDesdeDia(null);
     return nueva;
   }
 
@@ -62,12 +116,20 @@ export function RutinasProvider({ children }) {
 
   function eliminarRutina(id) {
     setRutinas(prev => prev.filter(r => r.id !== id));
-    if (rutinaActual?.id === id) setRutinaActual(null);
+    if (rutinaActual?.id === id) {
+      setRutinaActual(null);
+      setDesdeDia(null);
+    }
   }
 
   function seleccionarRutina(rutina) {
     setRutinaActual(rutina);
     setDesdeDia(null);
+  }
+
+  function abrirCatalogoLibre() {
+    setDesdeDia(null);
+    setEjercicioActual(null);
   }
 
   function seleccionarDia(rutina, dia) {
@@ -76,22 +138,17 @@ export function RutinasProvider({ children }) {
   }
 
   function agregarEjercicioADia(rutinaId, dia, ejercicio, config = {}) {
+    const cfg = normalizarConfig(ejercicio, config);
     const nuevo = {
       uid: `ej-${Date.now()}`,
       id: ejercicio.id,
       nombre: ejercicio.nombre,
       categoria: ejercicio.categoria,
       icon: ejercicio.icon || '💪',
-      series: Number(config.series ?? ejercicio.series ?? 3),
-      repsMin: String(config.repsMin ?? ejercicio.repsMin ?? ejercicio.reps ?? 8),
-      repsMax: String(config.repsMax ?? ejercicio.repsMax ?? ((ejercicio.reps || 8) + 4)),
-      descanso: Number(config.descanso ?? ejercicio.descanso ?? 90),
-      unidad: config.unidad ?? ejercicio.unidad ?? 'kg',
-      articulacion: config.articulacion ?? ejercicio.articulacion ?? 'Multiarticular',
-      lateralidad: config.lateralidad ?? ejercicio.lateralidad ?? 'Bilateral',
       isCustom: !!ejercicio.isCustom,
       descripcion: ejercicio.descripcion || '',
       videoUrl: ejercicio.videoUrl || null,
+      ...cfg,
     };
 
     setRutinas(prev => prev.map(r => {
@@ -136,14 +193,16 @@ export function RutinasProvider({ children }) {
   }
 
   function crearEjercicioPersonalizado(data) {
+    const cfg = normalizarConfig(data, data);
     const nuevo = {
       id: `c-${Date.now()}`,
-      icon: '✏️',
+      icon: data.icon || '✏️',
       isCustom: true,
       videoUrl: null,
       ...data,
-      sets: `${data.series || 3}x${data.repsMin || 8}-${data.repsMax || 12}`,
+      ...cfg,
     };
+    nuevo.sets = calcularSets(nuevo);
     setEjPersonalizados(prev => [nuevo, ...prev]);
     setEjercicioActual(nuevo);
     return nuevo;
@@ -151,10 +210,11 @@ export function RutinasProvider({ children }) {
 
   const value = useMemo(() => ({
     ejerciciosCatalogo: EJERCICIOS_DATA,
+    gruposMusculares: GRUPOS_MUSCULARES,
     rutinas, setRutinas, rutinaActual, setRutinaActual,
     desdeDia, setDesdeDia, ejercicioActual, setEjercicioActual,
     ejPersonalizados, setEjPersonalizados, sesionActual, setSesionActual,
-    crearRutina, actualizarRutina, eliminarRutina, seleccionarRutina, seleccionarDia,
+    crearRutina, actualizarRutina, eliminarRutina, seleccionarRutina, abrirCatalogoLibre, seleccionarDia,
     agregarEjercicioADia, actualizarEjercicioDia, eliminarEjercicioDia, crearEjercicioPersonalizado,
   }), [rutinas, rutinaActual, desdeDia, ejercicioActual, ejPersonalizados, sesionActual]);
 
