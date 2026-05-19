@@ -1,42 +1,54 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Alert, Modal } from 'react-native';
 import { useRutinas, esCardio } from '../../../context/RutinasContext';
 
 const PREP_DEFAULT = 3;
+const MOTIVOS = ['Máquina ocupada', 'En mantenimiento', 'Molestia física', 'Falta de tiempo', 'Otro'];
 
-function fmt(segundos) {
-  const total = Math.max(0, Math.round(segundos || 0));
-  const m = Math.floor(total / 60).toString().padStart(2, '0');
-  const s = (total % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+function keyEj(e) { return e?.uid || e?.sesionUid || e?.id; }
+function fmt(segundos) { const t=Math.max(0,Math.round(segundos||0)); return `${Math.floor(t/60).toString().padStart(2,'0')}:${(t%60).toString().padStart(2,'0')}`; }
+function totalSeries(e) { return esCardio(e) ? 1 : Number(e?.series)||3; }
+function descansoDe(e) { return esCardio(e) ? 0 : Number(e?.descanso)||90; }
+function estimadoEj(e) { if (esCardio(e)) return (Number(e?.duracionMin)||20)*60; const s=totalSeries(e); return (s*60)+Math.max(0,s-1)*descansoDe(e); }
+function repsSugeridas(e) { const min=Number(e?.repsMin)||Number(e?.reps)||8; const max=Number(e?.repsMax)||min; return String(Math.round((min+max)/2)); }
+function estadoLabel(e){ return e==='preparacion'?'Prepárate':e==='serie'?'Serie en curso':e==='descanso'?'Descanso activo':e==='resumen'?'Resumen final':'Sesión activa'; }
+function clonarEjercicios(lista){ return (lista||[]).map((e,i)=>({...e, sesionUid:e.uid||`sesion-ej-${i}-${Date.now()}`, ordenSesion:i+1})); }
+
+function VideoBox({ ejercicio, visible }) {
+  if (!visible) return null;
+  return <View style={s.videoBox}><Text style={s.videoPlay}>▶</Text><Text style={s.videoTitle}>Video demostrativo</Text><Text style={s.videoSub}>{ejercicio?.videoUrl ? 'Video cargado del catálogo' : 'Placeholder visual de técnica'}</Text></View>;
 }
 
-function totalSeries(ejercicio) {
-  return esCardio(ejercicio) ? 1 : Number(ejercicio?.series) || 3;
-}
+function GestionEjerciciosModal({ visible, ejercicios, ejIndex, registros, onClose, onAplicar, onCancelarEjercicio, onSustituirEjercicio, catalogo }) {
+  const [local, setLocal] = useState(ejercicios);
+  const [seleccion, setSeleccion] = useState(null);
+  const [motivo, setMotivo] = useState(MOTIVOS[0]);
+  const [usarSustituto, setUsarSustituto] = useState(false);
+  const [sustituto, setSustituto] = useState(null);
 
-function descansoDe(ejercicio) {
-  return esCardio(ejercicio) ? 0 : Number(ejercicio?.descanso) || 90;
-}
+  useEffect(()=>{ setLocal(ejercicios); setSeleccion(null); setMotivo(MOTIVOS[0]); setUsarSustituto(false); setSustituto(null); },[visible, ejercicios]);
+  if (!visible) return null;
 
-function repsSugeridas(ejercicio) {
-  const min = Number(ejercicio?.repsMin) || Number(ejercicio?.reps) || 8;
-  const max = Number(ejercicio?.repsMax) || min;
-  return String(Math.round((min + max) / 2));
-}
+  function mover(i, dir){ const j=i+dir; if(j<0||j>=local.length||i===ejIndex||j===ejIndex) return; const arr=[...local]; [arr[i],arr[j]]=[arr[j],arr[i]]; setLocal(arr); }
+  function abrirCancelacion(i){ setSeleccion(i); setMotivo(MOTIVOS[0]); setUsarSustituto(false); setSustituto(null); }
+  function confirmarCancelacion(){ if(seleccion===null) return; const objetivo=local[seleccion]; if(usarSustituto && sustituto){ onSustituirEjercicio(seleccion, objetivo, {...sustituto, sesionUid:`sub-${Date.now()}`, sustituyeA:objetivo.nombre, motivoSustitucion:motivo}); } else { onCancelarEjercicio(seleccion, objetivo, motivo); } setSeleccion(null); }
 
-function estadoLabel(estado) {
-  if (estado === 'preparacion') return 'Prepárate';
-  if (estado === 'serie') return 'Serie en curso';
-  if (estado === 'descanso') return 'Descanso activo';
-  if (estado === 'resumen') return 'Resumen final';
-  return 'Sesión activa';
+  return <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <View style={s.modalOverlay}><View style={s.modalSheet}>
+      <View style={s.modalHandle}/><View style={s.modalHeader}><View><Text style={s.modalTitle}>Gestionar ejercicios</Text><Text style={s.modalSub}>Reordenar, cancelar o sustituir solo esta sesión</Text></View><TouchableOpacity style={s.closeBtn} onPress={onClose}><Text style={s.closeText}>✕</Text></TouchableOpacity></View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {local.map((e,i)=>{ const regs=registros.filter(r=>r.ejercicioKey===keyEj(e)).length; const actual=i===ejIndex; return <View key={keyEj(e)||i} style={[s.manageCard,actual&&s.manageActual]}><View style={{flex:1}}><Text style={s.manageName}>{actual?'● ':''}{e.icon||'🏋️'} {e.nombre}</Text><Text style={s.manageSub}>{actual?'En curso · ':''}{regs}/{totalSeries(e)} series registradas{e.sustituyeA?` · Sustituye a ${e.sustituyeA}`:''}</Text></View>{!actual&&<View style={s.manageActions}><TouchableOpacity style={s.iconBtn} onPress={()=>mover(i,-1)}><Text style={s.iconBtnText}>▲</Text></TouchableOpacity><TouchableOpacity style={s.iconBtn} onPress={()=>mover(i,1)}><Text style={s.iconBtnText}>▼</Text></TouchableOpacity><TouchableOpacity style={s.iconDanger} onPress={()=>abrirCancelacion(i)}><Text style={s.iconDangerText}>⊘</Text></TouchableOpacity></View>}</View>})}
+        <TouchableOpacity style={s.btnSmallPrimaryFull} onPress={()=>{onAplicar(local); onClose();}}><Text style={s.btnSmallPrimaryText}>Aplicar nuevo orden</Text></TouchableOpacity>
+      </ScrollView>
+      {seleccion!==null&&<View style={s.cancelPanel}><Text style={s.cancelTitle}>Cancelar: {local[seleccion]?.nombre}</Text><Text style={s.cancelSub}>El descanso puede llegar a 0:00, pero no avanzarás hasta cerrar esta ventana.</Text><View style={s.chips}>{MOTIVOS.map(m=><TouchableOpacity key={m} style={[s.chip,motivo===m&&s.chipActive]} onPress={()=>setMotivo(m)}><Text style={[s.chipText,motivo===m&&s.chipTextActive]}>{m}</Text></TouchableOpacity>)}</View><TouchableOpacity style={s.checkRow} onPress={()=>setUsarSustituto(v=>!v)}><Text style={s.checkBox}>{usarSustituto?'☑':'☐'}</Text><Text style={s.checkText}>Sustituir por otro ejercicio</Text></TouchableOpacity>{usarSustituto&&<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginVertical:8}}>{catalogo.slice(0,10).map(e=><TouchableOpacity key={e.id} style={[s.subChip,sustituto?.id===e.id&&s.subChipActive]} onPress={()=>setSustituto(e)}><Text style={s.subChipText}>{e.icon||'🏋️'} {e.nombre}</Text></TouchableOpacity>)}</ScrollView>}<View style={s.formActions}><TouchableOpacity style={s.btnSmallSecondary} onPress={()=>setSeleccion(null)}><Text style={s.btnSmallSecondaryText}>Volver</Text></TouchableOpacity><TouchableOpacity style={s.btnSmallPrimary} onPress={confirmarCancelacion}><Text style={s.btnSmallPrimaryText}>{usarSustituto?'Sustituir':'Cancelar sin sustituir'}</Text></TouchableOpacity></View></View>}
+    </View></View>
+  </Modal>;
 }
 
 export default function SesionActivaScreen({ navigation }) {
-  const { sesionActual, setSesionActual } = useRutinas();
-  const ejercicios = sesionActual?.ejercicios || [];
-
+  const { sesionActual, setSesionActual, ejerciciosCatalogo, ejPersonalizados } = useRutinas();
+  const [ejerciciosSesion, setEjerciciosSesion] = useState(()=>clonarEjercicios(sesionActual?.ejercicios||[]));
+  const [cancelados, setCancelados] = useState(sesionActual?.cancelados || []);
   const [estado, setEstado] = useState('preparacion');
   const [ejIndex, setEjIndex] = useState(0);
   const [serieActual, setSerieActual] = useState(1);
@@ -48,302 +60,79 @@ export default function SesionActivaScreen({ navigation }) {
   const [reps, setReps] = useState('');
   const [notaSerie, setNotaSerie] = useState('');
   const [notaSesion, setNotaSesion] = useState(sesionActual?.notaSesion || '');
-  const [finalizada, setFinalizada] = useState(false);
+  const [duracionFinal, setDuracionFinal] = useState(sesionActual?.duracionRealSeg || null);
+  const [mostrarVideo, setMostrarVideo] = useState(false);
+  const [modalGestion, setModalGestion] = useState(false);
+  const [serieGuardada, setSerieGuardada] = useState(null);
 
-  const ejercicio = ejercicios[ejIndex];
+  const ejercicio = ejerciciosSesion[ejIndex];
   const total = totalSeries(ejercicio);
-  const completadasEjercicio = registros.filter(r => r.ejercicioKey === (ejercicio?.uid || ejercicio?.id)).length;
-  const totalRegistrosEsperados = ejercicios.reduce((acc, e) => acc + totalSeries(e), 0);
-  const progreso = totalRegistrosEsperados ? registros.length / totalRegistrosEsperados : 0;
-  const inicioMs = useMemo(() => sesionActual?.inicioISO ? new Date(sesionActual.inicioISO).getTime() : Date.now(), [sesionActual?.inicioISO]);
-  const [duracionReal, setDuracionReal] = useState(Math.floor((Date.now() - inicioMs) / 1000));
+  const totalEsperado = ejerciciosSesion.reduce((a,e)=>a+totalSeries(e),0);
+  const progreso = totalEsperado ? registros.length / totalEsperado : 0;
+  const inicioMs = useMemo(()=>sesionActual?.inicioISO ? new Date(sesionActual.inicioISO).getTime() : Date.now(),[sesionActual?.inicioISO]);
+  const [duracionReal,setDuracionReal]=useState(Math.floor((Date.now()-inicioMs)/1000));
+  const duracionMostrada = duracionFinal ?? duracionReal;
+  const catalogo = [...(ejerciciosCatalogo||[]), ...(ejPersonalizados||[])];
 
-  useEffect(() => {
-    const id = setInterval(() => setDuracionReal(Math.floor((Date.now() - inicioMs) / 1000)), 1000);
-    return () => clearInterval(id);
-  }, [inicioMs]);
+  useEffect(()=>{ if(duracionFinal!==null) return; const id=setInterval(()=>setDuracionReal(Math.floor((Date.now()-inicioMs)/1000)),1000); return()=>clearInterval(id); },[inicioMs,duracionFinal]);
+  useEffect(()=>{ if(!ejercicio||estado!=='preparacion'||duracionFinal!==null) return; if(prep<=0){setEstado('serie');setSerieSeg(0);return;} const id=setTimeout(()=>setPrep(v=>v-1),1000); return()=>clearTimeout(id); },[estado,prep,ejercicio,duracionFinal]);
+  useEffect(()=>{ if(estado!=='serie'||duracionFinal!==null) return; const id=setInterval(()=>setSerieSeg(v=>v+1),1000); return()=>clearInterval(id); },[estado,duracionFinal]);
+  useEffect(()=>{ if(estado!=='descanso'||duracionFinal!==null) return; if(descansoSeg<=0) return; const id=setTimeout(()=>setDescansoSeg(v=>Math.max(0,v-1)),1000); return()=>clearTimeout(id); },[estado,descansoSeg,duracionFinal]);
+  useEffect(()=>{ if(!ejercicio) return; setReps(repsSugeridas(ejercicio)); setPeso(''); setNotaSerie(''); setSerieGuardada(null); setMostrarVideo(false); },[keyEj(ejercicio),serieActual]);
 
-  useEffect(() => {
-    if (!ejercicio || finalizada) return;
-    if (estado !== 'preparacion') return;
-    if (prep <= 0) {
-      setEstado('serie');
-      setSerieSeg(0);
-      return;
-    }
-    const id = setTimeout(() => setPrep(v => v - 1), 1000);
-    return () => clearTimeout(id);
-  }, [estado, prep, ejercicio, finalizada]);
+  function persistir(extra={}) { setSesionActual(prev=>prev?{...prev, ejercicios:ejerciciosSesion, registros, cancelados, notaSesion, ...extra}:prev); }
+  function validarFormulario(){ if(esCardio(ejercicio)) return true; return !!peso.trim() && !!reps.trim(); }
+  function pedirFormulario(){ Alert.alert('Formulario vacío', 'Por favor rellena peso y repeticiones para avanzar a la siguiente serie/ejercicio.'); }
+  function detenerSerie(){ setEstado('descanso'); setDescansoSeg(descansoDe(ejercicio)); }
 
-  useEffect(() => {
-    if (estado !== 'serie' || finalizada) return;
-    const id = setInterval(() => setSerieSeg(v => v + 1), 1000);
-    return () => clearInterval(id);
-  }, [estado, finalizada]);
-
-  useEffect(() => {
-    if (estado !== 'descanso' || finalizada) return;
-    if (descansoSeg <= 0) return;
-    const id = setTimeout(() => setDescansoSeg(v => Math.max(0, v - 1)), 1000);
-    return () => clearTimeout(id);
-  }, [estado, descansoSeg, finalizada]);
-
-  useEffect(() => {
-    if (!ejercicio) return;
-    setReps(repsSugeridas(ejercicio));
-    setPeso('');
-    setNotaSerie('');
-  }, [ejercicio, serieActual]);
-
-  function detenerSerie() {
-    setEstado('descanso');
-    setDescansoSeg(descansoDe(ejercicio));
+  function guardarSolo(){
+    if(!ejercicio) return null; if(!validarFormulario()){ pedirFormulario(); return null; }
+    if(serieGuardada) return serieGuardada;
+    const nuevo={id:`reg-${Date.now()}`, ejercicioKey:keyEj(ejercicio), ejercicioNombre:ejercicio.nombre, serie:serieActual, peso:esCardio(ejercicio)?'—':peso.trim(), unidad:ejercicio.unidad||'kg', reps:esCardio(ejercicio)?`${ejercicio.duracionMin||20} min`:reps.trim(), tiempoEjecucionSeg:serieSeg, descansoConfiguradoSeg:descansoDe(ejercicio), nota:notaSerie.trim(), sustituyeA:ejercicio.sustituyeA||null, motivoSustitucion:ejercicio.motivoSustitucion||null};
+    const nuevos=[...registros,nuevo]; setRegistros(nuevos); setSerieGuardada(nuevo); setSesionActual(prev=>prev?{...prev, registros:nuevos}:prev); return nuevo;
   }
 
-  function guardarSerie() {
-    if (!ejercicio) return;
-    if (!esCardio(ejercicio) && (!peso.trim() || !reps.trim())) {
-      Alert.alert('Registro pendiente', 'Completa peso y repeticiones para guardar la serie.');
-      return;
-    }
-
-    const nuevo = {
-      id: `reg-${Date.now()}`,
-      ejercicioKey: ejercicio.uid || ejercicio.id,
-      ejercicioNombre: ejercicio.nombre,
-      serie: serieActual,
-      peso: esCardio(ejercicio) ? '—' : peso.trim(),
-      unidad: ejercicio.unidad || 'kg',
-      reps: esCardio(ejercicio) ? `${ejercicio.duracionMin || 20} min` : reps.trim(),
-      tiempoEjecucionSeg: serieSeg,
-      descansoConfiguradoSeg: descansoDe(ejercicio),
-      nota: notaSerie.trim(),
-    };
-
-    const nuevosRegistros = [...registros, nuevo];
-    setRegistros(nuevosRegistros);
-    setSesionActual(prev => prev ? { ...prev, registros: nuevosRegistros } : prev);
-
-    const esUltimaSerie = serieActual >= total;
-    const esUltimoEjercicio = ejIndex >= ejercicios.length - 1;
-
-    setPeso('');
-    setNotaSerie('');
-
-    if (esUltimaSerie && esUltimoEjercicio) {
-      finalizarCon(nuevosRegistros);
-      return;
-    }
-
-    if (esUltimaSerie) {
-      setEjIndex(i => i + 1);
-      setSerieActual(1);
-    } else {
-      setSerieActual(s => s + 1);
-    }
-    setPrep(PREP_DEFAULT);
-    setSerieSeg(0);
-    setDescansoSeg(0);
-    setEstado('preparacion');
+  function avanzar(){
+    const guardado = serieGuardada || guardarSolo(); if(!guardado) return;
+    const esUltimaSerie=serieActual>=total; const esUltimoEj=ejIndex>=ejerciciosSesion.length-1;
+    if(esUltimaSerie&&esUltimoEj){ finalizarCon(registros.includes(guardado)?registros:[...registros,guardado]); return; }
+    if(esUltimaSerie){ setEjIndex(i=>i+1); setSerieActual(1); } else setSerieActual(s=>s+1);
+    setPrep(PREP_DEFAULT); setSerieSeg(0); setDescansoSeg(0); setEstado('preparacion');
   }
 
-  function finalizarCon(registrosFinales = registros) {
-    const finISO = new Date().toISOString();
-    const resumen = {
-      ...sesionActual,
-      estado: 'finalizada',
-      finISO,
-      duracionRealSeg: Math.max(1, Math.floor((Date.now() - inicioMs) / 1000)),
-      registros: registrosFinales,
-      notaSesion,
-      resumenVisual: {
-        ejercicios: ejercicios.length,
-        series: registrosFinales.length,
-        estimadoSeg: sesionActual?.tiempoEstimadoSeg || 0,
-      },
-    };
-    setSesionActual(resumen);
-    setFinalizada(true);
-    setEstado('resumen');
+  function finalizarCon(registrosFinales=registros){ const dur=Math.max(1,Math.floor((Date.now()-inicioMs)/1000)); setDuracionFinal(dur); const resumen={...sesionActual, estado:'finalizada', finISO:new Date().toISOString(), duracionRealSeg:dur, ejercicios:ejerciciosSesion, registros:registrosFinales, cancelados, notaSesion, resumenVisual:{ejercicios:ejerciciosSesion.length, series:registrosFinales.length, cancelados:cancelados.length, estimadoSeg:sesionActual?.tiempoEstimadoSeg||0}}; setSesionActual(resumen); setEstado('resumen'); }
+  function cancelarSesion(){ Alert.alert('Salir de la sesión','La sesión simulada se queda en memoria solo mientras la app esté abierta.',[{text:'Seguir entrenando',style:'cancel'},{text:'Salir',style:'destructive',onPress:()=>navigation.navigate('RutinaDetalle')}]); }
+  function saltarEjercicioActivo(){ Alert.alert('Cancelar ejercicio','Debes indicar motivo antes de cancelar o sustituir este ejercicio. Abre “Gestionar”.'); }
+  function aplicarOrden(nuevoOrden){ setEjerciciosSesion(nuevoOrden.map((e,i)=>({...e,ordenSesion:i+1}))); }
+  function cancelarEjercicio(idx, objetivo, motivo){ const regs=registros.filter(r=>r.ejercicioKey===keyEj(objetivo)); const nuevoCancel={id:`cancel-${Date.now()}`, nombre:objetivo.nombre, motivo, seriesRegistradas:regs.length, sustituido:false}; const nuevaLista=ejerciciosSesion.filter((_,i)=>i!==idx); setCancelados(prev=>[...prev,nuevoCancel]); setEjerciciosSesion(nuevaLista); if(idx<ejIndex) setEjIndex(i=>Math.max(0,i-1)); else if(idx===ejIndex){ setEjIndex(i=>Math.min(i,nuevaLista.length-1)); setSerieActual(1); setPrep(PREP_DEFAULT); setSerieSeg(0); setEstado('preparacion'); } }
+  function sustituirEjercicio(idx, original, sustituto){ const nuevo={...sustituto, series:original.series||sustituto.series||3, repsMin:original.repsMin||sustituto.repsMin, repsMax:original.repsMax||sustituto.repsMax, descanso:original.descanso||sustituto.descanso, ordenSesion:idx+1}; const nuevaLista=ejerciciosSesion.map((e,i)=>i===idx?nuevo:e); setCancelados(prev=>[...prev,{id:`sub-${Date.now()}`, nombre:original.nombre, motivo:sustituto.motivoSustitucion, sustituido:true, sustituto:sustituto.nombre, seriesRegistradas:registros.filter(r=>r.ejercicioKey===keyEj(original)).length}]); setEjerciciosSesion(nuevaLista); if(idx===ejIndex){ setSerieActual(1); setPrep(PREP_DEFAULT); setSerieSeg(0); setEstado('preparacion'); } }
+
+  if(!ejerciciosSesion.length && estado!=='resumen') return <View style={s.container}><StatusBar barStyle="light-content"/><View style={s.center}><Text style={s.emptyIcon}>⏱️</Text><Text style={s.emptyTitle}>No hay sesión activa</Text><TouchableOpacity style={s.btnPrimary} onPress={()=>navigation.navigate('Rutinas')}><Text style={s.btnPrimaryText}>Ir a rutinas</Text></TouchableOpacity></View></View>;
+
+  if(estado==='resumen'){
+    const estimado = sesionActual?.tiempoEstimadoSeg || ejerciciosSesion.reduce((a,e)=>a+estimadoEj(e),0);
+    const diferencia = duracionMostrada - estimado;
+    return <View style={s.container}><StatusBar barStyle="light-content"/><View style={s.header}><Text style={s.headerTitle}>Sesión finalizada</Text></View><ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+      <View style={s.doneHero}><Text style={s.doneIcon}>✅</Text><Text style={s.doneTitle}>Entrenamiento guardado en memoria</Text><Text style={s.doneSub}>Listo para conectarse después a SQLite/historial real.</Text></View>
+      <View style={s.statsRow}><View style={s.statCard}><Text style={s.statValue}>{fmt(duracionMostrada)}</Text><Text style={s.statLabel}>tiempo real</Text></View><View style={s.statCard}><Text style={s.statValue}>{registros.length}</Text><Text style={s.statLabel}>series</Text></View><View style={s.statCard}><Text style={s.statValue}>{cancelados.length}</Text><Text style={s.statLabel}>cancelados</Text></View></View>
+      <View style={s.compareCard}><Text style={s.compareTitle}>Tiempo real vs estimado</Text><Text style={s.compareMain}>{diferencia>=0?'+':'-'}{fmt(Math.abs(diferencia))}</Text><Text style={s.compareSub}>{diferencia>=0?'Tardaste un poco más de lo estimado, normal si hubo descansos extra.':'Terminaste más rápido de lo estimado, buen ritmo.'}</Text></View>
+      <Text style={s.sectionLabel}>Resumen por ejercicio</Text>{ejerciciosSesion.map((e,i)=>{const regs=registros.filter(r=>r.ejercicioKey===keyEj(e)); const real=regs.reduce((a,r)=>a+(Number(r.tiempoEjecucionSeg)||0),0)+Math.max(0,regs.length-1)*descansoDe(e); const est=estimadoEj(e); const diff=real-est; return <View key={keyEj(e)||i} style={s.summaryExercise}><Text style={s.summaryName}>{e.icon||'🏋️'} {e.nombre}</Text>{e.sustituyeA&&<Text style={s.substitutionText}>Sustituido por: {e.sustituyeA} · Motivo: {e.motivoSustitucion}</Text>}<Text style={s.summarySub}>{regs.length}/{totalSeries(e)} series registradas · real {fmt(real)} / estimado {fmt(est)}</Text><Text style={[s.timeDiff,diff<=0?s.timeGood:s.timeBad]}>{diff<=0?'🟢':'🔴'} {diff<=0?'Antes':'Después'} por {fmt(Math.abs(diff))}</Text></View>})}
+      {cancelados.length>0&&<><Text style={s.sectionLabel}>Ejercicios cancelados / sustituidos</Text>{cancelados.map(c=><View key={c.id} style={s.cancelSummary}><Text style={s.cancelSummaryName}>⊘ {c.nombre}</Text><Text style={s.cancelSummarySub}>Motivo: {c.motivo}{c.sustituido?` · Sustituido por ${c.sustituto}`:' · Sin sustituto'} · {c.seriesRegistradas} series previas</Text></View>)}</>}
+      <TextInput style={[s.input,s.noteInput]} multiline maxLength={500} placeholder="Nota general de la sesión..." placeholderTextColor="#666" value={notaSesion} onChangeText={setNotaSesion}/><TouchableOpacity style={s.btnPrimary} onPress={()=>{setSesionActual(prev=>prev?{...prev,notaSesion}:prev);navigation.navigate('Progreso');}}><Text style={s.btnPrimaryText}>Ver progreso simulado →</Text></TouchableOpacity><TouchableOpacity style={s.btnSecondary} onPress={()=>navigation.navigate('RutinaDetalle')}><Text style={s.btnSecondaryText}>Volver a rutina</Text></TouchableOpacity>
+    </ScrollView></View>;
   }
 
-  function cancelarSesion() {
-    Alert.alert('Salir de la sesión', 'La sesión simulada se quedará en memoria solo mientras la app esté abierta.', [
-      { text: 'Seguir entrenando', style: 'cancel' },
-      { text: 'Salir', style: 'destructive', onPress: () => navigation.navigate('RutinaDetalle') },
-    ]);
-  }
-
-  if (!ejercicios.length) {
-    return (
-      <View style={s.container}>
-        <StatusBar barStyle="light-content" />
-        <View style={s.center}>
-          <Text style={s.emptyIcon}>⏱️</Text>
-          <Text style={s.emptyTitle}>No hay sesión activa</Text>
-          <TouchableOpacity style={s.btnPrimary} onPress={() => navigation.navigate('Rutinas')}><Text style={s.btnPrimaryText}>Ir a rutinas</Text></TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  if (estado === 'resumen') {
-    const diferencia = duracionReal - (sesionActual?.tiempoEstimadoSeg || 0);
-    return (
-      <View style={s.container}>
-        <StatusBar barStyle="light-content" />
-        <View style={s.header}><Text style={s.headerTitle}>Sesión finalizada</Text></View>
-        <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-          <View style={s.doneHero}>
-            <Text style={s.doneIcon}>✅</Text>
-            <Text style={s.doneTitle}>Entrenamiento guardado en memoria</Text>
-            <Text style={s.doneSub}>Listo para conectarse después a SQLite/historial real.</Text>
-          </View>
-
-          <View style={s.statsRow}>
-            <View style={s.statCard}><Text style={s.statValue}>{fmt(duracionReal)}</Text><Text style={s.statLabel}>tiempo real</Text></View>
-            <View style={s.statCard}><Text style={s.statValue}>{registros.length}</Text><Text style={s.statLabel}>series</Text></View>
-            <View style={s.statCard}><Text style={s.statValue}>{ejercicios.length}</Text><Text style={s.statLabel}>ejercicios</Text></View>
-          </View>
-
-          <View style={s.compareCard}>
-            <Text style={s.compareTitle}>Tiempo real vs estimado</Text>
-            <Text style={s.compareMain}>{diferencia >= 0 ? '+' : '-'}{fmt(Math.abs(diferencia))}</Text>
-            <Text style={s.compareSub}>{diferencia >= 0 ? 'Tardaste un poco más de lo estimado, normal si hubo descansos extra.' : 'Terminaste más rápido de lo estimado, buen ritmo.'}</Text>
-          </View>
-
-          <Text style={s.sectionLabel}>Resumen por ejercicio</Text>
-          {ejercicios.map((e, i) => {
-            const regs = registros.filter(r => r.ejercicioKey === (e.uid || e.id));
-            return <View key={e.uid || `${e.id}-${i}`} style={s.summaryExercise}><Text style={s.summaryName}>{e.icon || '🏋️'} {e.nombre}</Text><Text style={s.summarySub}>{regs.length}/{totalSeries(e)} series registradas</Text></View>;
-          })}
-
-          <TextInput style={[s.input, s.noteInput]} multiline maxLength={500} placeholder="Nota general de la sesión..." placeholderTextColor="#666" value={notaSesion} onChangeText={setNotaSesion} />
-          <TouchableOpacity style={s.btnPrimary} onPress={() => { setSesionActual(prev => prev ? { ...prev, notaSesion } : prev); navigation.navigate('Progreso'); }}><Text style={s.btnPrimaryText}>Ver progreso simulado →</Text></TouchableOpacity>
-          <TouchableOpacity style={s.btnSecondary} onPress={() => navigation.navigate('RutinaDetalle')}><Text style={s.btnSecondaryText}>Volver a rutina</Text></TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={s.header}>
-        <TouchableOpacity onPress={cancelarSesion} style={s.backBtn}><Text style={s.backText}>←</Text></TouchableOpacity>
-        <View style={s.headerCenter}><Text style={s.headerTitle}>{estadoLabel(estado)}</Text><Text style={s.headerSub}>{sesionActual?.rutinaNombre} · {sesionActual?.dia}</Text></View>
-        <Text style={s.timerMini}>{fmt(duracionReal)}</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-        <View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.min(100, progreso * 100)}%` }]} /></View>
-        <Text style={s.progressText}>{registros.length}/{totalRegistrosEsperados} series registradas</Text>
-
-        <View style={s.currentCard}>
-          <View style={s.exerciseTopRow}>
-            <Text style={s.currentIcon}>{ejercicio.icon || '🏋️'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={s.currentName}>{ejercicio.nombre}</Text>
-              <Text style={s.currentSub}>Ejercicio {ejIndex + 1}/{ejercicios.length} · Serie {serieActual}/{total}</Text>
-            </View>
-          </View>
-
-          <View style={s.bigTimerBox}>
-            <Text style={s.bigTimerLabel}>{estado === 'preparacion' ? 'Comienza en' : estado === 'serie' ? 'Tiempo de ejecución' : 'Descanso restante'}</Text>
-            <Text style={s.bigTimer}>{estado === 'preparacion' ? prep : estado === 'serie' ? fmt(serieSeg) : fmt(descansoSeg)}</Text>
-            {estado === 'preparacion' && <Text style={s.bigTimerHint}>Respira, acomódate y prepara la técnica</Text>}
-            {estado === 'descanso' && descansoSeg <= 0 && <Text style={s.warningText}>Descanso terminado · guarda para continuar</Text>}
-          </View>
-
-          {estado === 'serie' && <TouchableOpacity style={s.btnPrimary} onPress={detenerSerie}><Text style={s.btnPrimaryText}>■ Terminar serie</Text></TouchableOpacity>}
-
-          {estado === 'descanso' && (
-            <View style={s.formCard}>
-              <Text style={s.formTitle}>Registrar serie {serieActual}</Text>
-              {!esCardio(ejercicio) && <View style={s.formRow}><TextInput style={s.input} keyboardType="numeric" placeholder={`Peso (${ejercicio.unidad || 'kg'})`} placeholderTextColor="#666" value={peso} onChangeText={setPeso} /><TextInput style={s.input} keyboardType="numeric" placeholder="Reps" placeholderTextColor="#666" value={reps} onChangeText={setReps} /></View>}
-              {esCardio(ejercicio) && <Text style={s.cardioText}>Cardio registrado por duración: {ejercicio.duracionMin || 20} min</Text>}
-              <TextInput style={[s.input, s.noteInput]} multiline maxLength={500} placeholder="Nota de serie opcional..." placeholderTextColor="#666" value={notaSerie} onChangeText={setNotaSerie} />
-              <View style={s.formActions}>
-                {descansoSeg > 0 && <TouchableOpacity style={s.btnSmallSecondary} onPress={() => setDescansoSeg(0)}><Text style={s.btnSmallSecondaryText}>Saltar descanso</Text></TouchableOpacity>}
-                <TouchableOpacity style={s.btnSmallPrimary} onPress={guardarSerie}><Text style={s.btnSmallPrimaryText}>Guardar y continuar</Text></TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
-
-        <Text style={s.sectionLabel}>Series registradas</Text>
-        {registros.length === 0 ? <Text style={s.noRegs}>Aún no hay series guardadas.</Text> : registros.slice().reverse().map(r => (
-          <View key={r.id} style={s.regCard}><Text style={s.regName}>{r.ejercicioNombre}</Text><Text style={s.regSub}>Serie {r.serie} · {r.peso} {r.unidad} · {r.reps} reps · {fmt(r.tiempoEjecucionSeg)}</Text>{!!r.nota && <Text style={s.regNote}>“{r.nota}”</Text>}</View>
-        ))}
-
-        <TouchableOpacity style={s.btnDanger} onPress={() => finalizarCon()}><Text style={s.btnDangerText}>Finalizar sesión ahora</Text></TouchableOpacity>
-      </ScrollView>
+  return <View style={s.container}><StatusBar barStyle="light-content"/><View style={s.header}><TouchableOpacity onPress={cancelarSesion} style={s.backBtn}><Text style={s.backText}>←</Text></TouchableOpacity><View style={s.headerCenter}><Text style={s.headerTitle}>{estadoLabel(estado)}</Text><Text style={s.headerSub}>{sesionActual?.rutinaNombre} · {sesionActual?.dia}</Text></View><Text style={s.timerMini}>{fmt(duracionMostrada)}</Text></View><ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+    <View style={s.progressTrack}><View style={[s.progressFill,{width:`${Math.min(100,progreso*100)}%`}]}/></View><Text style={s.progressText}>{registros.length}/{totalEsperado} series registradas</Text>
+    <View style={s.currentCard}><View style={s.exerciseTopRow}><Text style={s.currentIcon}>{ejercicio.icon||'🏋️'}</Text><View style={{flex:1}}><Text style={s.currentName}>{ejercicio.nombre}</Text><Text style={s.currentSub}>Ejercicio {ejIndex+1}/{ejerciciosSesion.length} · Serie {serieActual}/{total}</Text>{ejercicio.sustituyeA&&<Text style={s.substitutionText}>Sustituye a {ejercicio.sustituyeA} · {ejercicio.motivoSustitucion}</Text>}</View></View>
+      <View style={s.topActions}><TouchableOpacity style={s.btnTiny} onPress={()=>setMostrarVideo(v=>!v)}><Text style={s.btnTinyText}>{mostrarVideo?'Ocultar video':'Ver video 🎥'}</Text></TouchableOpacity><TouchableOpacity style={s.btnTiny} onPress={()=>setModalGestion(true)}><Text style={s.btnTinyText}>Gestionar 🔀</Text></TouchableOpacity></View><VideoBox ejercicio={ejercicio} visible={mostrarVideo}/>
+      <View style={s.bigTimerBox}><Text style={s.bigTimerLabel}>{estado==='preparacion'?'Comienza en':estado==='serie'?'Tiempo de ejecución':'Descanso restante'}</Text><Text style={s.bigTimer}>{estado==='preparacion'?prep:estado==='serie'?fmt(serieSeg):fmt(descansoSeg)}</Text>{estado==='preparacion'&&<Text style={s.bigTimerHint}>Respira, acomódate y prepara la técnica</Text>}{estado==='descanso'&&descansoSeg<=0&&<Text style={s.warningText}>Descanso terminado · guarda el formulario para avanzar</Text>}</View>
+      {estado==='serie'&&<TouchableOpacity style={s.btnPrimary} onPress={detenerSerie}><Text style={s.btnPrimaryText}>■ Terminar serie</Text></TouchableOpacity>}
+      {estado==='descanso'&&<View style={s.formCard}><Text style={s.formTitle}>Registrar serie {serieActual}</Text>{!esCardio(ejercicio)&&<View style={s.formRow}><TextInput style={s.input} keyboardType="numeric" placeholder={`Peso (${ejercicio.unidad||'kg'})`} placeholderTextColor="#666" value={peso} onChangeText={setPeso}/><TextInput style={s.input} keyboardType="numeric" placeholder="Reps" placeholderTextColor="#666" value={reps} onChangeText={setReps}/></View>}{esCardio(ejercicio)&&<Text style={s.cardioText}>Cardio registrado por duración: {ejercicio.duracionMin||20} min</Text>}<TextInput style={[s.input,s.noteInput]} multiline maxLength={500} placeholder="Nota de serie opcional..." placeholderTextColor="#666" value={notaSerie} onChangeText={setNotaSerie}/>{serieGuardada&&<Text style={s.savedText}>✓ Formulario guardado. Ya puedes avanzar.</Text>}<View style={s.formActions}><TouchableOpacity style={s.btnSmallSecondary} onPress={guardarSolo}><Text style={s.btnSmallSecondaryText}>Guardar formulario</Text></TouchableOpacity><TouchableOpacity style={s.btnSmallPrimary} onPress={avanzar}><Text style={s.btnSmallPrimaryText}>Siguiente serie/ejercicio</Text></TouchableOpacity></View></View>}
     </View>
-  );
+    <Text style={s.sectionLabel}>Series registradas</Text>{registros.length===0?<Text style={s.noRegs}>Aún no hay series guardadas.</Text>:registros.slice().reverse().map(r=><View key={r.id} style={s.regCard}><Text style={s.regName}>{r.ejercicioNombre}</Text>{r.sustituyeA&&<Text style={s.substitutionText}>Sustituto de {r.sustituyeA}</Text>}<Text style={s.regSub}>Serie {r.serie} · {r.peso} {r.unidad} · {r.reps} reps · {fmt(r.tiempoEjecucionSeg)}</Text>{!!r.nota&&<Text style={s.regNote}>“{r.nota}”</Text>}</View>)}
+    <TouchableOpacity style={s.btnDanger} onPress={saltarEjercicioActivo}><Text style={s.btnDangerText}>Cancelar/sustituir ejercicio actual</Text></TouchableOpacity><TouchableOpacity style={s.btnDanger} onPress={()=>finalizarCon()}><Text style={s.btnDangerText}>Finalizar sesión ahora</Text></TouchableOpacity>
+  </ScrollView><GestionEjerciciosModal visible={modalGestion} ejercicios={ejerciciosSesion} ejIndex={ejIndex} registros={registros} catalogo={catalogo} onClose={()=>setModalGestion(false)} onAplicar={aplicarOrden} onCancelarEjercicio={cancelarEjercicio} onSustituirEjercicio={sustituirEjercicio}/></View>;
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a22' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#2a2a35' },
-  backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#2a2a35', alignItems: 'center', justifyContent: 'center' },
-  backText: { color: 'white', fontSize: 18, fontWeight: '800' },
-  headerCenter: { flex: 1, alignItems: 'center', marginHorizontal: 10 },
-  headerTitle: { color: 'white', fontSize: 17, fontWeight: '900', textAlign: 'center' },
-  headerSub: { color: '#777', fontSize: 11, marginTop: 2, textAlign: 'center' },
-  timerMini: { color: '#5eead4', fontSize: 13, fontWeight: '900', width: 48, textAlign: 'right' },
-  body: { padding: 16, paddingBottom: 44 },
-  progressTrack: { height: 6, backgroundColor: '#2a2a35', borderRadius: 10, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#7c6fcd', borderRadius: 10 },
-  progressText: { color: '#777', fontSize: 11, textAlign: 'right', marginTop: 6, marginBottom: 12 },
-  currentCard: { backgroundColor: '#2a2a35', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#333', marginBottom: 16 },
-  exerciseTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  currentIcon: { fontSize: 34, marginRight: 12 },
-  currentName: { color: 'white', fontSize: 18, fontWeight: '900' },
-  currentSub: { color: '#888', fontSize: 12, marginTop: 3 },
-  bigTimerBox: { backgroundColor: '#1a1a22', borderRadius: 16, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-  bigTimerLabel: { color: '#888', fontSize: 11, textTransform: 'uppercase', fontWeight: '800', letterSpacing: .6 },
-  bigTimer: { color: '#5eead4', fontSize: 54, fontWeight: '900', marginTop: 4 },
-  bigTimerHint: { color: '#777', fontSize: 12, textAlign: 'center' },
-  warningText: { color: '#f97316', fontSize: 12, fontWeight: '800', marginTop: 4 },
-  formCard: { marginTop: 14, backgroundColor: '#1a1a22', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#333' },
-  formTitle: { color: 'white', fontSize: 14, fontWeight: '900', marginBottom: 10 },
-  formRow: { flexDirection: 'row', gap: 8 },
-  input: { flex: 1, backgroundColor: '#2a2a35', borderWidth: 1, borderColor: '#3a3a45', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: 'white', fontSize: 13 },
-  noteInput: { minHeight: 74, textAlignVertical: 'top', marginTop: 8 },
-  cardioText: { color: '#5eead4', fontSize: 13, fontWeight: '800', marginBottom: 8 },
-  formActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  btnPrimary: { backgroundColor: '#7c6fcd', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 14 },
-  btnPrimaryText: { color: 'white', fontSize: 15, fontWeight: '900' },
-  btnSecondary: { backgroundColor: '#2a2a35', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: '#333' },
-  btnSecondaryText: { color: '#aaa', fontSize: 14, fontWeight: '800' },
-  btnSmallPrimary: { flex: 1, backgroundColor: '#7c6fcd', borderRadius: 10, padding: 11, alignItems: 'center' },
-  btnSmallPrimaryText: { color: 'white', fontWeight: '900', fontSize: 12 },
-  btnSmallSecondary: { flex: 1, backgroundColor: '#2a2a35', borderRadius: 10, padding: 11, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-  btnSmallSecondaryText: { color: '#aaa', fontWeight: '800', fontSize: 12 },
-  sectionLabel: { color: '#777', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 10 },
-  noRegs: { color: '#666', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
-  regCard: { backgroundColor: '#2a2a35', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#333', marginBottom: 8 },
-  regName: { color: 'white', fontSize: 13, fontWeight: '900' },
-  regSub: { color: '#888', fontSize: 12, marginTop: 3 },
-  regNote: { color: '#aaa', fontSize: 12, marginTop: 7, fontStyle: 'italic' },
-  btnDanger: { backgroundColor: 'rgba(255,90,90,0.1)', borderWidth: 1, borderColor: 'rgba(255,90,90,0.35)', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 12 },
-  btnDangerText: { color: '#ff6b6b', fontSize: 13, fontWeight: '900' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyIcon: { fontSize: 46 },
-  emptyTitle: { color: 'white', fontSize: 18, fontWeight: '900', marginVertical: 12 },
-  doneHero: { alignItems: 'center', backgroundColor: '#2a2a35', borderRadius: 18, padding: 22, borderWidth: 1, borderColor: '#333', marginBottom: 12 },
-  doneIcon: { fontSize: 48 },
-  doneTitle: { color: 'white', fontSize: 18, fontWeight: '900', marginTop: 8, textAlign: 'center' },
-  doneSub: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 5 },
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  statCard: { flex: 1, backgroundColor: '#2a2a35', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-  statValue: { color: '#5eead4', fontSize: 18, fontWeight: '900' },
-  statLabel: { color: '#777', fontSize: 10, marginTop: 3, textTransform: 'uppercase', fontWeight: '800' },
-  compareCard: { backgroundColor: 'rgba(124,111,205,0.13)', borderWidth: 1, borderColor: 'rgba(124,111,205,0.35)', borderRadius: 14, padding: 14, marginBottom: 16 },
-  compareTitle: { color: 'white', fontSize: 14, fontWeight: '900' },
-  compareMain: { color: '#7c6fcd', fontSize: 30, fontWeight: '900', marginTop: 4 },
-  compareSub: { color: '#aaa', fontSize: 12, lineHeight: 18 },
-  summaryExercise: { backgroundColor: '#2a2a35', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#333', marginBottom: 8 },
-  summaryName: { color: 'white', fontSize: 13, fontWeight: '900' },
-  summarySub: { color: '#888', fontSize: 12, marginTop: 3 },
-});
+const s = StyleSheet.create({container:{flex:1,backgroundColor:'#1a1a22'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:52,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#2a2a35'},backBtn:{width:36,height:36,borderRadius:10,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},backText:{color:'white',fontSize:18,fontWeight:'800'},headerCenter:{flex:1,alignItems:'center',marginHorizontal:10},headerTitle:{color:'white',fontSize:17,fontWeight:'900',textAlign:'center'},headerSub:{color:'#777',fontSize:11,marginTop:2,textAlign:'center'},timerMini:{color:'#5eead4',fontSize:13,fontWeight:'900',width:52,textAlign:'right'},body:{padding:16,paddingBottom:44},progressTrack:{height:6,backgroundColor:'#2a2a35',borderRadius:10,overflow:'hidden'},progressFill:{height:'100%',backgroundColor:'#7c6fcd',borderRadius:10},progressText:{color:'#777',fontSize:11,textAlign:'right',marginTop:6,marginBottom:12},currentCard:{backgroundColor:'#2a2a35',borderRadius:18,padding:16,borderWidth:1,borderColor:'#333',marginBottom:16},exerciseTopRow:{flexDirection:'row',alignItems:'center',marginBottom:10},currentIcon:{fontSize:34,marginRight:12},currentName:{color:'white',fontSize:18,fontWeight:'900'},currentSub:{color:'#888',fontSize:12,marginTop:3},topActions:{flexDirection:'row',gap:8,marginBottom:10},btnTiny:{flex:1,backgroundColor:'rgba(124,111,205,0.14)',borderWidth:1,borderColor:'rgba(124,111,205,0.35)',borderRadius:10,padding:9,alignItems:'center'},btnTinyText:{color:'#9b8cff',fontSize:12,fontWeight:'900'},videoBox:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:14,padding:16,alignItems:'center',marginBottom:10},videoPlay:{fontSize:34,color:'#7c6fcd'},videoTitle:{color:'white',fontWeight:'900',marginTop:6},videoSub:{color:'#777',fontSize:12,marginTop:3},bigTimerBox:{backgroundColor:'#1a1a22',borderRadius:16,padding:18,alignItems:'center',borderWidth:1,borderColor:'#333'},bigTimerLabel:{color:'#888',fontSize:11,textTransform:'uppercase',fontWeight:'800',letterSpacing:.6},bigTimer:{color:'#5eead4',fontSize:54,fontWeight:'900',marginTop:4},bigTimerHint:{color:'#777',fontSize:12,textAlign:'center'},warningText:{color:'#f97316',fontSize:12,fontWeight:'800',marginTop:4},formCard:{marginTop:14,backgroundColor:'#1a1a22',borderRadius:14,padding:12,borderWidth:1,borderColor:'#333'},formTitle:{color:'white',fontSize:14,fontWeight:'900',marginBottom:10},formRow:{flexDirection:'row',gap:8},input:{flex:1,backgroundColor:'#2a2a35',borderWidth:1,borderColor:'#3a3a45',borderRadius:10,paddingHorizontal:12,paddingVertical:10,color:'white',fontSize:13},noteInput:{minHeight:74,textAlignVertical:'top',marginTop:8},cardioText:{color:'#5eead4',fontSize:13,fontWeight:'800',marginBottom:8},savedText:{color:'#34d399',fontSize:12,fontWeight:'900',marginTop:8},formActions:{flexDirection:'row',gap:8,marginTop:10},btnPrimary:{backgroundColor:'#7c6fcd',borderRadius:12,padding:15,alignItems:'center',marginTop:14},btnPrimaryText:{color:'white',fontSize:15,fontWeight:'900'},btnSecondary:{backgroundColor:'#2a2a35',borderRadius:12,padding:15,alignItems:'center',marginTop:10,borderWidth:1,borderColor:'#333'},btnSecondaryText:{color:'#aaa',fontSize:14,fontWeight:'800'},btnSmallPrimary:{flex:1,backgroundColor:'#7c6fcd',borderRadius:10,padding:11,alignItems:'center'},btnSmallPrimaryFull:{backgroundColor:'#7c6fcd',borderRadius:10,padding:12,alignItems:'center',marginVertical:10},btnSmallPrimaryText:{color:'white',fontWeight:'900',fontSize:12},btnSmallSecondary:{flex:1,backgroundColor:'#2a2a35',borderRadius:10,padding:11,alignItems:'center',borderWidth:1,borderColor:'#333'},btnSmallSecondaryText:{color:'#aaa',fontWeight:'800',fontSize:12},sectionLabel:{color:'#777',fontSize:12,fontWeight:'900',textTransform:'uppercase',letterSpacing:.5,marginBottom:10},noRegs:{color:'#666',fontSize:13,textAlign:'center',paddingVertical:12},regCard:{backgroundColor:'#2a2a35',borderRadius:12,padding:12,borderWidth:1,borderColor:'#333',marginBottom:8},regName:{color:'white',fontSize:13,fontWeight:'900'},regSub:{color:'#888',fontSize:12,marginTop:3},regNote:{color:'#aaa',fontSize:12,marginTop:7,fontStyle:'italic'},btnDanger:{backgroundColor:'rgba(255,90,90,0.1)',borderWidth:1,borderColor:'rgba(255,90,90,0.35)',borderRadius:12,padding:14,alignItems:'center',marginTop:12},btnDangerText:{color:'#ff6b6b',fontSize:13,fontWeight:'900'},center:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:46},emptyTitle:{color:'white',fontSize:18,fontWeight:'900',marginVertical:12},doneHero:{alignItems:'center',backgroundColor:'#2a2a35',borderRadius:18,padding:22,borderWidth:1,borderColor:'#333',marginBottom:12},doneIcon:{fontSize:48},doneTitle:{color:'white',fontSize:18,fontWeight:'900',marginTop:8,textAlign:'center'},doneSub:{color:'#888',fontSize:13,textAlign:'center',marginTop:5},statsRow:{flexDirection:'row',gap:8,marginBottom:12},statCard:{flex:1,backgroundColor:'#2a2a35',borderRadius:12,padding:12,alignItems:'center',borderWidth:1,borderColor:'#333'},statValue:{color:'#5eead4',fontSize:18,fontWeight:'900'},statLabel:{color:'#777',fontSize:10,marginTop:3,textTransform:'uppercase',fontWeight:'800'},compareCard:{backgroundColor:'rgba(124,111,205,0.13)',borderWidth:1,borderColor:'rgba(124,111,205,0.35)',borderRadius:14,padding:14,marginBottom:16},compareTitle:{color:'white',fontSize:14,fontWeight:'900'},compareMain:{color:'#7c6fcd',fontSize:30,fontWeight:'900',marginTop:4},compareSub:{color:'#aaa',fontSize:12,lineHeight:18},summaryExercise:{backgroundColor:'#2a2a35',borderRadius:12,padding:12,borderWidth:1,borderColor:'#333',marginBottom:8},summaryName:{color:'white',fontSize:13,fontWeight:'900'},summarySub:{color:'#888',fontSize:12,marginTop:3},substitutionText:{color:'#f97316',fontSize:11,fontWeight:'800',marginTop:3},timeDiff:{fontSize:12,fontWeight:'900',marginTop:5},timeGood:{color:'#34d399'},timeBad:{color:'#ff6b6b'},cancelSummary:{backgroundColor:'rgba(255,90,90,0.08)',borderWidth:1,borderColor:'rgba(255,90,90,0.25)',borderRadius:12,padding:12,marginBottom:8},cancelSummaryName:{color:'#ff8a8a',fontWeight:'900',fontSize:13},cancelSummarySub:{color:'#aaa',fontSize:12,marginTop:3},modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-end'},modalSheet:{backgroundColor:'#1f1f29',borderTopLeftRadius:22,borderTopRightRadius:22,padding:16,maxHeight:'88%',borderWidth:1,borderColor:'#333'},modalHandle:{width:36,height:4,borderRadius:4,backgroundColor:'#444',alignSelf:'center',marginBottom:12},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},modalTitle:{color:'white',fontSize:16,fontWeight:'900'},modalSub:{color:'#888',fontSize:11,marginTop:2},closeBtn:{width:32,height:32,borderRadius:8,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},closeText:{color:'#aaa',fontWeight:'900'},manageCard:{flexDirection:'row',alignItems:'center',backgroundColor:'#2a2a35',borderRadius:12,padding:12,borderWidth:1,borderColor:'#333',marginBottom:8},manageActual:{borderColor:'#7c6fcd',backgroundColor:'rgba(124,111,205,0.12)'},manageName:{color:'white',fontWeight:'900',fontSize:13},manageSub:{color:'#888',fontSize:11,marginTop:3},manageActions:{flexDirection:'row',gap:5},iconBtn:{width:28,height:28,borderRadius:7,backgroundColor:'#1a1a22',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#333'},iconBtnText:{color:'#aaa',fontSize:10,fontWeight:'900'},iconDanger:{width:28,height:28,borderRadius:7,backgroundColor:'rgba(255,90,90,0.1)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,90,90,0.3)'},iconDangerText:{color:'#ff6b6b',fontWeight:'900'},cancelPanel:{backgroundColor:'#1a1a22',borderRadius:14,borderWidth:1,borderColor:'#333',padding:12,marginTop:8},cancelTitle:{color:'#ff8a8a',fontWeight:'900'},cancelSub:{color:'#888',fontSize:11,marginTop:4},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:10},chip:{paddingHorizontal:9,paddingVertical:6,borderRadius:8,backgroundColor:'#2a2a35',borderWidth:1,borderColor:'#333'},chipActive:{backgroundColor:'rgba(255,90,90,0.16)',borderColor:'#ff6b6b'},chipText:{color:'#aaa',fontSize:11,fontWeight:'800'},chipTextActive:{color:'#ff8a8a'},checkRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},checkBox:{color:'#5eead4',fontSize:16},checkText:{color:'#ddd',fontSize:12,fontWeight:'800'},subChip:{backgroundColor:'#2a2a35',borderRadius:10,paddingHorizontal:10,paddingVertical:8,marginRight:6,borderWidth:1,borderColor:'#333'},subChipActive:{borderColor:'#5eead4',backgroundColor:'rgba(94,234,212,0.1)'},subChipText:{color:'#ddd',fontSize:12,fontWeight:'800'}});
