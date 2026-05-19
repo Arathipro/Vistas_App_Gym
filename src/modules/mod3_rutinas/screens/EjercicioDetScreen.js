@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Modal, Pressable } from 'react-native';
 import { useRutinas, esCardio, esCore, etiquetaCategoria } from '../../../context/RutinasContext';
 
 export default function EjercicioDetScreen({ navigation, route }) {
   const {
     ejercicioActual, desdeDia, rutinaActual, rutinas, gruposMusculares,
-    agregarEjercicioADia, crearEjercicioPersonalizado,
+    agregarEjercicioADia, crearEjercicioPersonalizado, seleccionarDia,
   } = useRutinas();
 
   const base = ejercicioActual || {};
@@ -25,6 +25,8 @@ export default function EjercicioDetScreen({ navigation, route }) {
   const [duracionMin, setDuracionMin] = useState(String(base.duracionMin || (esCardio(base) ? base.reps || 30 : 30)));
   const [articulacion, setArticulacion] = useState(base.articulacion || 'Multiarticular');
   const [lateralidad, setLateralidad] = useState(base.lateralidad || 'Bilateral');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [rutinaSel, setRutinaSel] = useState(rutinas.length === 1 ? rutinas[0] : null);
 
   const categoriaFinal = esCustom ? categoria : base.categoria;
   const ejercicioPreview = { ...base, categoria: categoriaFinal };
@@ -78,6 +80,21 @@ export default function EjercicioDetScreen({ navigation, route }) {
   function agregarADia() {
     if (!desdeDia || !rutina || !puedeGuardar) return;
     agregarEjercicioADia(rutina.id, desdeDia, buildEjercicio(), configActual());
+    navigation.navigate('DiaRutina');
+  }
+
+  function abrirModalRutina() {
+    if (!puedeGuardar) return;
+    setRutinaSel(rutinas.length === 1 ? rutinas[0] : null);
+    setModalVisible(true);
+  }
+
+  function agregarADiaElegido(dia) {
+    if (!rutinaSel || !puedeGuardar) return;
+    const ejercicio = esNuevo ? crearEjercicioPersonalizado(buildEjercicio()) : buildEjercicio();
+    agregarEjercicioADia(rutinaSel.id, dia, ejercicio, configActual());
+    seleccionarDia(rutinaSel, dia);
+    setModalVisible(false);
     navigation.navigate('DiaRutina');
   }
 
@@ -151,8 +168,29 @@ export default function EjercicioDetScreen({ navigation, route }) {
 
         {esCustom && !desdeDia && <TouchableOpacity style={[s.btnPrimary, !puedeGuardar && s.btnDisabled]} disabled={!puedeGuardar} onPress={guardarPersonalizado}><Text style={s.btnPrimaryText}>Guardar en mis ejercicios</Text></TouchableOpacity>}
         {desdeDia && <TouchableOpacity style={[s.btnPrimary, !puedeGuardar && s.btnDisabled]} disabled={!puedeGuardar} onPress={esNuevo ? guardarPersonalizado : agregarADia}><Text style={s.btnPrimaryText}>➕ Agregar a {desdeDia}</Text></TouchableOpacity>}
-        {!desdeDia && !esCustom && fromCatalogFree && <TouchableOpacity style={s.btnSecondary} onPress={() => navigation.navigate('Ejercicios')}><Text style={s.btnSecondaryText}>← Volver al catálogo</Text></TouchableOpacity>}
+        {!desdeDia && fromCatalogFree && <TouchableOpacity style={[s.btnPrimary, !puedeGuardar && s.btnDisabled]} disabled={!puedeGuardar} onPress={abrirModalRutina}><Text style={s.btnPrimaryText}>➕ Agregar a una rutina</Text></TouchableOpacity>}
+        {!desdeDia && fromCatalogFree && <TouchableOpacity style={s.btnSecondary} onPress={() => navigation.navigate('Ejercicios')}><Text style={s.btnSecondaryText}>← Volver al catálogo</Text></TouchableOpacity>}
       </ScrollView>
+
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+        <Pressable style={s.overlay} onPress={() => setModalVisible(false)} />
+        <View style={s.sheet}>
+          <View style={s.handle} />
+          <View style={s.sheetHead}>
+            <View><Text style={s.sheetTitle}>Agregar a rutina</Text><Text style={s.sheetSub}>{base.icon || '💪'} {nombreFinal}</Text></View>
+            <TouchableOpacity style={s.closeBtn} onPress={() => setModalVisible(false)}><Text style={s.closeText}>✕</Text></TouchableOpacity>
+          </View>
+
+          {rutinas.length === 0 ? (
+            <View style={s.emptyModal}><Text style={s.emptySmall}>No tienes rutinas creadas. Crea una rutina primero.</Text><TouchableOpacity style={s.modalBtn} onPress={() => { setModalVisible(false); navigation.navigate('CrearRutina'); }}><Text style={s.modalBtnText}>Crear rutina</Text></TouchableOpacity></View>
+          ) : (
+            <>
+              {rutinas.length > 1 && <><Text style={s.modalLabel}>1. Elige la rutina</Text>{rutinas.map(r => <TouchableOpacity key={r.id} style={[s.rutinaOption, rutinaSel?.id === r.id && s.rutinaOptionActive]} onPress={() => setRutinaSel(r)}><Text style={s.rutinaName}>🏋️ {r.nombre}</Text><Text style={s.rutinaDays}>{r.diasHabilitados.join(' · ')}</Text>{rutinaSel?.id === r.id && <Text style={s.check}>✓</Text>}</TouchableOpacity>)}</>}
+              {rutinaSel && <><Text style={s.modalLabel}>{rutinas.length > 1 ? '2.' : '1.'} Elige el día</Text><View style={s.diasRow}>{rutinaSel.diasHabilitados.map(d => <TouchableOpacity key={d} style={s.diaBtn} onPress={() => agregarADiaElegido(d)}><Text style={s.diaBtnText}>{d}</Text></TouchableOpacity>)}</View></>}
+            </>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -165,5 +203,5 @@ function OptionRow({ items, value, setValue, labels = {}, color }) {
 }
 
 const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:'#1a1a22'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:52,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#2a2a35'},backBtn:{width:36,height:36,borderRadius:10,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},backText:{color:'white',fontSize:18},headerTitle:{fontSize:16,fontWeight:'800',color:'white',flex:1,textAlign:'center',marginHorizontal:8},body:{padding:16,paddingBottom:40},badge:{alignSelf:'flex-start',backgroundColor:'rgba(249,115,22,.12)',borderWidth:1,borderColor:'rgba(249,115,22,.3)',borderRadius:20,paddingHorizontal:10,paddingVertical:3,marginBottom:14},badgeText:{fontSize:10,fontWeight:'700',color:'#f97316'},videoBox:{height:150,borderRadius:16,backgroundColor:'#11111b',borderWidth:1,borderColor:'#333',alignItems:'center',justifyContent:'center',marginBottom:12},play:{fontSize:38,color:'#7c6fcd'},videoTitle:{color:'white',fontWeight:'800',marginTop:6},videoSub:{color:'#888',fontSize:11,marginTop:2},card:{backgroundColor:'#2a2a35',borderRadius:14,padding:15,borderWidth:1,borderColor:'#333',marginBottom:12},cardTitle:{fontSize:14,fontWeight:'800',color:'white',marginBottom:12},label:{fontSize:10,color:'#888',fontWeight:'800',textTransform:'uppercase',letterSpacing:.4,marginBottom:5,marginTop:8},input:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:12,color:'white',fontSize:14},inputCenter:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:10,color:'white',fontSize:14,textAlign:'center'},inputCenterWide:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:12,color:'white',fontSize:16,textAlign:'center',flex:1},timeRow:{flexDirection:'row',alignItems:'center',gap:10},timeUnit:{color:'#aaa',fontSize:13},categoryGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},categoryBtn:{backgroundColor:'#1a1a22',borderRadius:9,borderWidth:1,borderColor:'#333',paddingHorizontal:10,paddingVertical:8},categoryActive:{backgroundColor:'rgba(94,234,212,.1)',borderColor:'#5eead4'},categoryText:{color:'#888',fontSize:12,fontWeight:'700'},categoryTextActive:{color:'#5eead4'},titleRow:{flexDirection:'row',alignItems:'center',gap:12},bigIcon:{fontSize:32},name:{fontSize:18,fontWeight:'800',color:'white'},sub:{fontSize:12,color:'#888',marginTop:2},description:{fontSize:13,color:'#ccc',lineHeight:20,marginTop:12},grid:{flexDirection:'row',gap:8},optRow:{flexDirection:'row',gap:8,flexWrap:'wrap',marginBottom:4},opt:{paddingHorizontal:12,paddingVertical:8,borderRadius:9,backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333'},optText:{fontSize:12,color:'#888',fontWeight:'700'},optPurple:{borderColor:'#7c6fcd',backgroundColor:'rgba(124,111,205,.12)'},optTeal:{borderColor:'#5eead4',backgroundColor:'rgba(94,234,212,.1)'},optOrange:{borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.12)'},optTextPurple:{color:'#7c6fcd'},optTextTeal:{color:'#5eead4'},optTextOrange:{color:'#f97316'},preview:{backgroundColor:'rgba(124,111,205,.1)',borderRadius:10,padding:10,marginTop:12,borderWidth:1,borderColor:'rgba(124,111,205,.2)'},previewText:{color:'#ccc',fontSize:12,textAlign:'center'},btnPrimary:{backgroundColor:'#7c6fcd',borderRadius:12,padding:16,alignItems:'center',marginTop:4},btnDisabled:{opacity:.45},btnPrimaryText:{color:'white',fontWeight:'800',fontSize:15},btnSecondary:{backgroundColor:'#2a2a35',borderRadius:12,padding:16,alignItems:'center',marginTop:10,borderWidth:1,borderColor:'#333'},btnSecondaryText:{color:'#ccc',fontWeight:'700'}
+  container:{flex:1,backgroundColor:'#1a1a22'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:52,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#2a2a35'},backBtn:{width:36,height:36,borderRadius:10,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},backText:{color:'white',fontSize:18},headerTitle:{fontSize:16,fontWeight:'800',color:'white',flex:1,textAlign:'center',marginHorizontal:8},body:{padding:16,paddingBottom:40},badge:{alignSelf:'flex-start',backgroundColor:'rgba(249,115,22,.12)',borderWidth:1,borderColor:'rgba(249,115,22,.3)',borderRadius:20,paddingHorizontal:10,paddingVertical:3,marginBottom:14},badgeText:{fontSize:10,fontWeight:'700',color:'#f97316'},videoBox:{height:150,borderRadius:16,backgroundColor:'#11111b',borderWidth:1,borderColor:'#333',alignItems:'center',justifyContent:'center',marginBottom:12},play:{fontSize:38,color:'#7c6fcd'},videoTitle:{color:'white',fontWeight:'800',marginTop:6},videoSub:{color:'#888',fontSize:11,marginTop:2},card:{backgroundColor:'#2a2a35',borderRadius:14,padding:15,borderWidth:1,borderColor:'#333',marginBottom:12},cardTitle:{fontSize:14,fontWeight:'800',color:'white',marginBottom:12},label:{fontSize:10,color:'#888',fontWeight:'800',textTransform:'uppercase',letterSpacing:.4,marginBottom:5,marginTop:8},input:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:12,color:'white',fontSize:14},inputCenter:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:10,color:'white',fontSize:14,textAlign:'center'},inputCenterWide:{backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333',borderRadius:10,padding:12,color:'white',fontSize:16,textAlign:'center',flex:1},timeRow:{flexDirection:'row',alignItems:'center',gap:10},timeUnit:{color:'#aaa',fontSize:13},categoryGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},categoryBtn:{backgroundColor:'#1a1a22',borderRadius:9,borderWidth:1,borderColor:'#333',paddingHorizontal:10,paddingVertical:8},categoryActive:{backgroundColor:'rgba(94,234,212,.1)',borderColor:'#5eead4'},categoryText:{color:'#888',fontSize:12,fontWeight:'700'},categoryTextActive:{color:'#5eead4'},titleRow:{flexDirection:'row',alignItems:'center',gap:12},bigIcon:{fontSize:32},name:{fontSize:18,fontWeight:'800',color:'white'},sub:{fontSize:12,color:'#888',marginTop:2},description:{fontSize:13,color:'#ccc',lineHeight:20,marginTop:12},grid:{flexDirection:'row',gap:8},optRow:{flexDirection:'row',gap:8,flexWrap:'wrap',marginBottom:4},opt:{paddingHorizontal:12,paddingVertical:8,borderRadius:9,backgroundColor:'#1a1a22',borderWidth:1,borderColor:'#333'},optText:{fontSize:12,color:'#888',fontWeight:'700'},optPurple:{borderColor:'#7c6fcd',backgroundColor:'rgba(124,111,205,.12)'},optTeal:{borderColor:'#5eead4',backgroundColor:'rgba(94,234,212,.1)'},optOrange:{borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.12)'},optTextPurple:{color:'#7c6fcd'},optTextTeal:{color:'#5eead4'},optTextOrange:{color:'#f97316'},preview:{backgroundColor:'rgba(124,111,205,.1)',borderRadius:10,padding:10,marginTop:12,borderWidth:1,borderColor:'rgba(124,111,205,.2)'},previewText:{color:'#ccc',fontSize:12,textAlign:'center'},btnPrimary:{backgroundColor:'#7c6fcd',borderRadius:12,padding:16,alignItems:'center',marginTop:4},btnDisabled:{opacity:.45},btnPrimaryText:{color:'white',fontWeight:'800',fontSize:15},btnSecondary:{backgroundColor:'#2a2a35',borderRadius:12,padding:16,alignItems:'center',marginTop:10,borderWidth:1,borderColor:'#333'},btnSecondaryText:{color:'#ccc',fontWeight:'700'},overlay:{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,.65)'},sheet:{position:'absolute',left:0,right:0,bottom:0,maxHeight:'82%',backgroundColor:'#1a1a22',borderTopLeftRadius:20,borderTopRightRadius:20,borderWidth:1,borderColor:'#333',padding:16,paddingBottom:28},handle:{width:38,height:4,borderRadius:2,backgroundColor:'#444',alignSelf:'center',marginBottom:14},sheetHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14},sheetTitle:{fontSize:16,fontWeight:'800',color:'white'},sheetSub:{fontSize:12,color:'#888',marginTop:2},closeBtn:{width:32,height:32,borderRadius:9,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},closeText:{color:'#888'},modalLabel:{fontSize:11,color:'#888',fontWeight:'800',textTransform:'uppercase',letterSpacing:.5,marginBottom:8,marginTop:6},rutinaOption:{backgroundColor:'#2a2a35',borderRadius:12,padding:12,borderWidth:1.5,borderColor:'#333',marginBottom:8},rutinaOptionActive:{borderColor:'#7c6fcd',backgroundColor:'rgba(124,111,205,.13)'},rutinaName:{color:'white',fontSize:14,fontWeight:'800'},rutinaDays:{color:'#888',fontSize:11,marginTop:3},check:{position:'absolute',right:12,top:15,color:'#7c6fcd',fontSize:18,fontWeight:'800'},diasRow:{flexDirection:'row',flexWrap:'wrap',gap:8},diaBtn:{backgroundColor:'#7c6fcd',borderRadius:10,paddingHorizontal:16,paddingVertical:10},diaBtnText:{color:'white',fontWeight:'800'},emptyModal:{alignItems:'center',gap:10},emptySmall:{color:'#888',fontSize:13,textAlign:'center',padding:16},modalBtn:{backgroundColor:'#7c6fcd',borderRadius:10,paddingHorizontal:16,paddingVertical:12},modalBtnText:{color:'white',fontWeight:'800'}
 });
