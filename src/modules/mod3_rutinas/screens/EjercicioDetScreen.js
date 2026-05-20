@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Modal, Pressable, Alert } from 'react-native';
 import { useRutinas, esCardio, esCore, etiquetaCategoria } from '../../../context/RutinasContext';
 
 export default function EjercicioDetScreen({ navigation, route }) {
@@ -36,6 +36,33 @@ export default function EjercicioDetScreen({ navigation, route }) {
   const nombreFinal = esCustom ? (nombre.trim() || 'Nuevo ejercicio') : base.nombre;
   const puedeGuardar = !esCustom || (nombre.trim().length > 0 && categoria.trim().length > 0);
 
+  function validarConfigMinima() {
+    if (!puedeGuardar) {
+      Alert.alert('Datos incompletos', 'Completa el nombre y grupo muscular del ejercicio.');
+      return false;
+    }
+    if (cardio) {
+      if (!String(duracionMin).trim() || Number(duracionMin) <= 0) {
+        Alert.alert('Configuración incompleta', 'Indica una duración válida para el ejercicio de cardio.');
+        return false;
+      }
+      return true;
+    }
+    if (!String(series).trim() || Number(series) <= 0) {
+      Alert.alert('Configuración incompleta', 'Indica al menos la cantidad de series del ejercicio.');
+      return false;
+    }
+    if (!String(descanso).trim() || Number(descanso) < 0) {
+      Alert.alert('Configuración incompleta', 'Indica el descanso del ejercicio. Puede ser 0 si no tendrá descanso.');
+      return false;
+    }
+    if (!String(unidad).trim()) {
+      Alert.alert('Configuración incompleta', 'Selecciona el tipo de peso: kg, lb o placa.');
+      return false;
+    }
+    return true;
+  }
+
   function buildEjercicio() {
     const data = {
       ...base,
@@ -54,7 +81,7 @@ export default function EjercicioDetScreen({ navigation, route }) {
       reps: Number(repsMin) || 8,
       repsMin,
       repsMax,
-      descanso: Number(descanso) || 90,
+      descanso: Number(descanso) || 0,
       unidad,
       articulacion: core ? null : articulacion,
       lateralidad: core ? null : lateralidad,
@@ -67,7 +94,7 @@ export default function EjercicioDetScreen({ navigation, route }) {
   }
 
   function guardarPersonalizado() {
-    if (!puedeGuardar) return;
+    if (!validarConfigMinima()) return;
     const nuevo = crearEjercicioPersonalizado(buildEjercicio());
     if (desdeDia && rutina) {
       agregarEjercicioADia(rutina.id, desdeDia, nuevo, configActual());
@@ -78,19 +105,21 @@ export default function EjercicioDetScreen({ navigation, route }) {
   }
 
   function agregarADia() {
-    if (!desdeDia || !rutina || !puedeGuardar) return;
+    if (!desdeDia || !rutina) return;
+    if (!validarConfigMinima()) return;
     agregarEjercicioADia(rutina.id, desdeDia, buildEjercicio(), configActual());
     navigation.navigate('DiaRutina');
   }
 
   function abrirModalRutina() {
-    if (!puedeGuardar) return;
+    if (!validarConfigMinima()) return;
     setRutinaSel(rutinas.length === 1 ? rutinas[0] : null);
     setModalVisible(true);
   }
 
   function agregarADiaElegido(dia) {
-    if (!rutinaSel || !puedeGuardar) return;
+    if (!rutinaSel) return;
+    if (!validarConfigMinima()) return;
     const ejercicio = esNuevo ? crearEjercicioPersonalizado(buildEjercicio()) : buildEjercicio();
     agregarEjercicioADia(rutinaSel.id, dia, ejercicio, configActual());
     seleccionarDia(rutinaSel, dia);
@@ -141,19 +170,19 @@ export default function EjercicioDetScreen({ navigation, route }) {
           <Text style={s.cardTitle}>Configurar para rutina</Text>
           {cardio ? (
             <>
-              <Text style={s.label}>Duración total</Text>
+              <Text style={s.label}>Duración total *</Text>
               <View style={s.timeRow}><TextInput style={s.inputCenterWide} keyboardType="numeric" value={duracionMin} onChangeText={setDuracionMin} /><Text style={s.timeUnit}>minutos</Text></View>
               <View style={s.preview}><Text style={s.previewText}>Cardio · {duracionMin || '?'} minutos directos en la rutina</Text></View>
             </>
           ) : (
             <>
               <View style={s.grid}>
-                <Field label="Series" value={series} setValue={setSeries} />
+                <Field label="Series *" value={series} setValue={setSeries} />
                 <Field label="Rep min" value={repsMin} setValue={setRepsMin} />
                 <Field label="Rep max" value={repsMax} setValue={setRepsMax} />
-                <Field label="Descanso" value={descanso} setValue={setDescanso} />
+                <Field label="Descanso *" value={descanso} setValue={setDescanso} />
               </View>
-              <Text style={s.label}>Unidad de peso</Text>
+              <Text style={s.label}>Unidad de peso *</Text>
               <OptionRow items={['kg','lb','placa']} value={unidad} setValue={setUnidad} labels={{ placa: 'Placa #' }} color="orange" />
               {fuerza && <>
                 <Text style={s.label}>Tipo de articulación</Text>
@@ -161,7 +190,7 @@ export default function EjercicioDetScreen({ navigation, route }) {
                 <Text style={s.label}>Lateralidad</Text>
                 <OptionRow items={['Unilateral','Bilateral']} value={lateralidad} setValue={setLateralidad} color="teal" />
               </>}
-              <View style={s.preview}><Text style={s.previewText}>{series} series × {repsMin}–{repsMax} reps · {descanso}s descanso · {unidad === 'placa' ? 'Placa #' : unidad}</Text></View>
+              <View style={s.preview}><Text style={s.previewText}>{series || '?'} series · rango sugerido {repsMin || '?'}–{repsMax || '?'} reps · {descanso || '0'}s descanso · {unidad === 'placa' ? 'Placa #' : unidad}</Text></View>
             </>
           )}
         </View>
