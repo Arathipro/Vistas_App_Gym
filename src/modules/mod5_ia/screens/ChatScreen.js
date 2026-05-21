@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Platform, Modal, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSession } from '../../../context/AppSessionContext';
 
@@ -10,44 +10,10 @@ const SUGERENCIAS = [
 ];
 
 function perfilDemo(perfil) {
-  return {
-    nombre: perfil?.nombre || 'Arath',
-    objetivo: perfil?.objetivo || 'Ganar músculo',
-    nivel: perfil?.nivel || 'Principiante',
-    diasSemana: perfil?.diasSemana || '3 – 4 días',
-    equipo: perfil?.equipo || perfil?.lugar || 'Gimnasio equipado',
-    lesion: perfil?.lesion || 'No, ninguna',
-    edad: Number(perfil?.edad) || 18,
-    peso: Number(perfil?.peso) || 70,
-    altura: Number(perfil?.altura) || 1.72,
-    genero: perfil?.genero || 'Hombre',
-    actividad: perfil?.actividad || 'Moderado',
-  };
+  return { nombre: perfil?.nombre || 'Arath', objetivo: perfil?.objetivo || 'Ganar músculo', nivel: perfil?.nivel || 'Principiante', diasSemana: perfil?.diasSemana || '3 – 4 días', equipo: perfil?.equipo || perfil?.lugar || 'Gimnasio equipado', lesion: perfil?.lesion || 'No, ninguna', edad: Number(perfil?.edad) || 18, peso: Number(perfil?.peso) || 70, altura: Number(perfil?.altura) || 1.72, genero: perfil?.genero || 'Hombre', actividad: perfil?.actividad || 'Moderado' };
 }
-
-function calcularCalorias(p) {
-  const alturaCm = p.altura > 3 ? p.altura : p.altura * 100;
-  const base = p.genero === 'Mujer' ? (10 * p.peso) + (6.25 * alturaCm) - (5 * p.edad) - 161 : (10 * p.peso) + (6.25 * alturaCm) - (5 * p.edad) + 5;
-  const actividad = String(p.actividad).toLowerCase();
-  const factor = actividad.includes('muy') ? 1.725 : actividad.includes('moderado') ? 1.55 : actividad.includes('sedentario') ? 1.2 : 1.375;
-  const tmb = Math.round(base);
-  const tdee = Math.round(tmb * factor);
-  const objetivo = String(p.objetivo).toLowerCase();
-  const meta = objetivo.includes('perder') ? tdee - 350 : objetivo.includes('ganar') ? tdee + 250 : tdee;
-  return { tmb, tdee, meta: Math.max(1200, Math.round(meta)) };
-}
-
-function respuestaSimulada(texto, p, cal) {
-  const q = texto.toLowerCase();
-  const intro = `Tomando en cuenta tu perfil (${p.objetivo}, nivel ${p.nivel}, ${p.diasSemana} por semana), `;
-  if (q.includes('calor') || q.includes('tmb') || q.includes('tdee')) return `${intro}tu estimación aproximada es: TMB ${cal.tmb} kcal, mantenimiento ${cal.tdee} kcal y objetivo sugerido ${cal.meta} kcal/día. Úsalo como punto de partida, revisando tu progreso cada 2–3 semanas.`;
-  if (q.includes('espalda')) return `${intro}puedes priorizar jalón al pecho, remo con polea, remo con mancuerna y face pull. Empieza con 3–4 series de 8–12 repeticiones, descansando 90–120 segundos y cuidando la técnica.`;
-  if (q.includes('aliment') || q.includes('macro') || q.includes('nutric')) return `${intro}te conviene organizar tus comidas alrededor de proteína suficiente, carbohidratos para rendir y grasas saludables. No es una dieta médica: piensa en hábitos sostenibles, porciones razonables y constancia.`;
-  if (q.includes('sobrecarga') || q.includes('progres')) return `${intro}la sobrecarga progresiva significa mejorar poco a poco: más repeticiones, mejor técnica, más control, más series o un poco más de peso. No necesitas subir peso cada sesión; primero domina el movimiento.`;
-  if (q.includes('técnica') || q.includes('tecnica') || q.includes('lesion')) return `${intro}prioriza rango de movimiento controlado, calentamiento, peso manejable y descanso suficiente. Si aparece dolor persistente o molestia fuerte, lo más seguro es detenerte y consultarlo con un profesional.`;
-  if (q.includes('hipertrofia') || q.includes('fuerza') || q.includes('resistencia') || q.includes('entrenamiento')) return `${intro}una rutina enfocada en fuerza e hipertrofia puede usar ejercicios multiarticulares al inicio y accesorios después. Para tu nivel, una progresión simple con 3–4 días por semana es mejor que una rutina demasiado compleja.`;
-  return `${intro}puedo orientarte con entrenamiento, técnica, alimentación general, calorías y conceptos fitness. Mi respuesta es educativa y no sustituye la guía de un entrenador, médico o nutriólogo.`;
-}
+function calcularCalorias(p) { const alturaCm = p.altura > 3 ? p.altura : p.altura * 100; const base = p.genero === 'Mujer' ? (10 * p.peso) + (6.25 * alturaCm) - (5 * p.edad) - 161 : (10 * p.peso) + (6.25 * alturaCm) - (5 * p.edad) + 5; const actividad = String(p.actividad).toLowerCase(); const factor = actividad.includes('muy') ? 1.725 : actividad.includes('moderado') ? 1.55 : actividad.includes('sedentario') ? 1.2 : 1.375; const tmb = Math.round(base); const tdee = Math.round(tmb * factor); const objetivo = String(p.objetivo).toLowerCase(); const meta = objetivo.includes('perder') ? tdee - 350 : objetivo.includes('ganar') ? tdee + 250 : tdee; return { tmb, tdee, meta: Math.max(1200, Math.round(meta)) }; }
+function respuestaSimulada(texto, p, cal) { const q = texto.toLowerCase(); const intro = `Tomando en cuenta tu perfil (${p.objetivo}, nivel ${p.nivel}, ${p.diasSemana} por semana), `; if (q.includes('calor') || q.includes('tmb') || q.includes('tdee')) return `${intro}tu estimación aproximada es: TMB ${cal.tmb} kcal, mantenimiento ${cal.tdee} kcal y objetivo sugerido ${cal.meta} kcal/día. Úsalo como punto de partida, revisando tu progreso cada 2–3 semanas.`; if (q.includes('espalda')) return `${intro}puedes priorizar jalón al pecho, remo con polea, remo con mancuerna y face pull. Empieza con 3–4 series de 8–12 repeticiones, descansando 90–120 segundos y cuidando la técnica.`; if (q.includes('aliment') || q.includes('macro') || q.includes('nutric')) return `${intro}te conviene organizar tus comidas alrededor de proteína suficiente, carbohidratos para rendir y grasas saludables. No es una dieta médica: piensa en hábitos sostenibles, porciones razonables y constancia.`; if (q.includes('sobrecarga') || q.includes('progres')) return `${intro}la sobrecarga progresiva significa mejorar poco a poco: más repeticiones, mejor técnica, más control, más series o un poco más de peso. No necesitas subir peso cada sesión; primero domina el movimiento.`; if (q.includes('técnica') || q.includes('tecnica') || q.includes('lesion')) return `${intro}prioriza rango de movimiento controlado, calentamiento, peso manejable y descanso suficiente. Si aparece dolor persistente o molestia fuerte, lo más seguro es detenerte y consultarlo con un profesional.`; if (q.includes('hipertrofia') || q.includes('fuerza') || q.includes('resistencia') || q.includes('entrenamiento')) return `${intro}una rutina enfocada en fuerza e hipertrofia puede usar ejercicios multiarticulares al inicio y accesorios después. Para tu nivel, una progresión simple con 3–4 días por semana es mejor que una rutina demasiado compleja.`; return `${intro}puedo orientarte con entrenamiento, técnica, alimentación general, calorías y conceptos fitness. Mi respuesta es educativa y no sustituye la guía de un entrenador, médico o nutriólogo.`; }
 
 export default function ChatScreen({ navigation }) {
   const { perfil } = useAppSession();
@@ -58,58 +24,44 @@ export default function ChatScreen({ navigation }) {
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
   const [perfilVisible, setPerfilVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [sugerencias, setSugerencias] = useState(SUGERENCIAS);
   const [mensajes, setMensajes] = useState([{ id: 'm1', rol: 'ia', texto: `Hola ${p.nombre}. Soy tu asistente fitness. Puedo ayudarte con entrenamiento, técnica, alimentación general, calorías y conceptos de progreso usando tu perfil como referencia.` }]);
 
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, e => { setKeyboardHeight(e.endCoordinates?.height || 0); setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 80); });
+    const hide = Keyboard.addListener(hideEvt, () => { setKeyboardHeight(0); setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 80); });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
   function enviar(valor = texto, sugerenciaText = null) {
-    const limpio = valor.trim();
-    if (!limpio || pensando) return;
+    const limpio = valor.trim(); if (!limpio || pensando) return;
     if (sugerenciaText) setSugerencias(prev => prev.filter(sug => sug.text !== sugerenciaText));
-    setMensajes(prev => [...prev, { id: `u-${Date.now()}`, rol: 'user', texto: limpio }]);
-    setTexto('');
-    setPensando(true);
-    setTimeout(() => {
-      setMensajes(prev => [...prev, { id: `ia-${Date.now()}`, rol: 'ia', texto: respuestaSimulada(limpio, p, cal) }]);
-      setPensando(false);
-      setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 80);
-    }, 650);
+    setMensajes(prev => [...prev, { id: `u-${Date.now()}`, rol: 'user', texto: limpio }]); setTexto(''); setPensando(true);
+    setTimeout(() => { setMensajes(prev => [...prev, { id: `ia-${Date.now()}`, rol: 'ia', texto: respuestaSimulada(limpio, p, cal) }]); setPensando(false); setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 80); }, 650);
   }
 
-  return (
-    <View style={s.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={s.header}>
-        <TouchableOpacity style={s.backBtn} onPress={() => navigation.navigate('Home')}><Text style={s.backText}>←</Text></TouchableOpacity>
-        <View style={s.headerCenter}><Text style={s.headerTitle}>Asistente IA</Text><Text style={s.headerSub}>Módulo 5 · RF33–RF39</Text></View>
-        <TouchableOpacity style={s.botBadge} onPress={() => setPerfilVisible(true)}><Text style={s.botBadgeText}>🤖</Text><View style={s.botDot} /></TouchableOpacity>
-      </View>
+  const bottomOffset = keyboardHeight > 0 ? keyboardHeight : 0;
 
-      <ScrollView ref={scrollRef} style={s.chatArea} contentContainerStyle={s.body} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd?.({ animated: true })}>
-        <View style={s.heroCard}><View style={s.heroTop}><View style={s.heroIcon}><Text style={s.heroIconText}>🤖</Text></View><View style={{ flex: 1 }}><Text style={s.heroTitle}>Tu coach virtual</Text><Text style={s.heroSub}>Respuestas educativas, personalizadas y seguras.</Text></View></View><Text style={s.disclaimer}>Orientación general: no sustituye diagnóstico médico, nutricional ni entrenador certificado.</Text></View>
-        {mensajes.map(m => { const ia = m.rol === 'ia'; return <View key={m.id} style={[s.msgRow, ia ? s.msgLeft : s.msgRight]}><View style={[s.bubble, ia ? s.bubbleIa : s.bubbleUser]}><Text style={ia ? s.bubbleIaText : s.bubbleUserText}>{m.texto}</Text></View></View>; })}
-        {pensando && <View style={[s.msgRow, s.msgLeft]}><View style={[s.bubble, s.bubbleIa]}><Text style={s.typing}>Pensando respuesta segura...</Text></View></View>}
-        {sugerencias.length > 0 && <><Text style={s.sectionLabel}>Puedes preguntar</Text><View style={s.suggestionBox}>{sugerencias.map(x => <TouchableOpacity key={x.text} style={s.suggestion} onPress={() => enviar(x.text, x.text)}><Text style={s.suggestionIcon}>{x.icon}</Text><Text style={s.suggestionText}>{x.text}</Text></TouchableOpacity>)}</View></>}
-      </ScrollView>
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'position'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-        <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}><TextInput style={s.input} placeholder="Pregunta sobre entrenamiento, calorías o técnica..." placeholderTextColor="#777" value={texto} onChangeText={setTexto} multiline maxLength={500} onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 250)} /><TouchableOpacity style={[s.sendBtn, (!texto.trim() || pensando) && s.sendDisabled]} onPress={() => enviar()}><Text style={s.sendText}>➤</Text></TouchableOpacity></View>
-      </KeyboardAvoidingView>
-      <PerfilModal visible={perfilVisible} onClose={() => setPerfilVisible(false)} perfil={p} cal={cal} />
-    </View>
-  );
+  return <View style={s.container}>
+    <StatusBar barStyle="light-content" />
+    <View style={s.header}><TouchableOpacity style={s.backBtn} onPress={() => navigation.navigate('Home')}><Text style={s.backText}>←</Text></TouchableOpacity><View style={s.headerCenter}><Text style={s.headerTitle}>Asistente IA</Text><Text style={s.headerSub}>Módulo 5 · RF33–RF39</Text></View><TouchableOpacity style={s.botBadge} onPress={() => setPerfilVisible(true)}><Text style={s.botBadgeText}>🤖</Text><View style={s.botDot} /></TouchableOpacity></View>
+    <ScrollView ref={scrollRef} style={s.chatArea} contentContainerStyle={[s.body, { paddingBottom: 88 + Math.max(insets.bottom, 8) }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" onContentSizeChange={() => scrollRef.current?.scrollToEnd?.({ animated: true })}>
+      <View style={s.heroCard}><View style={s.heroTop}><View style={s.heroIcon}><Text style={s.heroIconText}>🤖</Text></View><View style={{ flex: 1 }}><Text style={s.heroTitle}>Tu coach virtual</Text><Text style={s.heroSub}>Respuestas educativas, personalizadas y seguras.</Text></View></View><Text style={s.disclaimer}>Orientación general: no sustituye diagnóstico médico, nutricional ni entrenador certificado.</Text></View>
+      {mensajes.map(m => { const ia = m.rol === 'ia'; return <View key={m.id} style={[s.msgRow, ia ? s.msgLeft : s.msgRight]}><View style={[s.bubble, ia ? s.bubbleIa : s.bubbleUser]}><Text style={ia ? s.bubbleIaText : s.bubbleUserText}>{m.texto}</Text></View></View>; })}
+      {pensando && <View style={[s.msgRow, s.msgLeft]}><View style={[s.bubble, s.bubbleIa]}><Text style={s.typing}>Pensando respuesta segura...</Text></View></View>}
+      {sugerencias.length > 0 && <><Text style={s.sectionLabel}>Puedes preguntar</Text><View style={s.suggestionBox}>{sugerencias.map(x => <TouchableOpacity key={x.text} style={s.suggestion} onPress={() => enviar(x.text, x.text)}><Text style={s.suggestionIcon}>{x.icon}</Text><Text style={s.suggestionText}>{x.text}</Text></TouchableOpacity>)}</View></>}
+    </ScrollView>
+    <View style={[s.inputWrap, { bottom: bottomOffset }]}><View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}><TextInput style={s.input} placeholder="Pregunta sobre entrenamiento, calorías o técnica..." placeholderTextColor="#777" value={texto} onChangeText={setTexto} multiline maxLength={500} onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd?.({ animated: true }), 250)} /><TouchableOpacity style={[s.sendBtn, (!texto.trim() || pensando) && s.sendDisabled]} onPress={() => enviar()}><Text style={s.sendText}>➤</Text></TouchableOpacity></View></View>
+    <PerfilModal visible={perfilVisible} onClose={() => setPerfilVisible(false)} perfil={p} cal={cal} />
+  </View>;
 }
 
-function PerfilModal({ visible, onClose, perfil, cal }) {
-  return <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}><View style={s.modalOverlay}><View style={s.profileCard}><View style={s.modalHeader}><View><Text style={s.profileTitle}>Perfil usado para personalizar</Text><Text style={s.profileSub}>El asistente adapta sus respuestas con estos datos.</Text></View><TouchableOpacity style={s.closeBtn} onPress={onClose}><Text style={s.closeText}>✕</Text></TouchableOpacity></View><View style={s.profileGrid}><Mini label="Objetivo" value={perfil.objetivo} /><Mini label="Nivel" value={perfil.nivel} /><Mini label="Frecuencia" value={perfil.diasSemana} /><Mini label="Equipo" value={perfil.equipo} /><Mini label="Limitación" value={perfil.lesion} /><Mini label="Actividad" value={perfil.actividad} /></View><View style={s.calRow}><View style={s.calBox}><Text style={s.calValue}>{cal.tmb}</Text><Text style={s.calLabel}>TMB</Text></View><View style={s.calBox}><Text style={s.calValue}>{cal.tdee}</Text><Text style={s.calLabel}>TDEE</Text></View><View style={s.calBox}><Text style={s.calValue}>{cal.meta}</Text><Text style={s.calLabel}>meta kcal</Text></View></View></View></View></Modal>;
-}
+function PerfilModal({ visible, onClose, perfil, cal }) { return <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}><View style={s.modalOverlay}><View style={s.profileCard}><View style={s.modalHeader}><View><Text style={s.profileTitle}>Perfil usado para personalizar</Text><Text style={s.profileSub}>El asistente adapta sus respuestas con estos datos.</Text></View><TouchableOpacity style={s.closeBtn} onPress={onClose}><Text style={s.closeText}>✕</Text></TouchableOpacity></View><View style={s.profileGrid}><Mini label="Objetivo" value={perfil.objetivo} /><Mini label="Nivel" value={perfil.nivel} /><Mini label="Frecuencia" value={perfil.diasSemana} /><Mini label="Equipo" value={perfil.equipo} /><Mini label="Limitación" value={perfil.lesion} /><Mini label="Actividad" value={perfil.actividad} /></View><View style={s.calRow}><View style={s.calBox}><Text style={s.calValue}>{cal.tmb}</Text><Text style={s.calLabel}>TMB</Text></View><View style={s.calBox}><Text style={s.calValue}>{cal.tdee}</Text><Text style={s.calLabel}>TDEE</Text></View><View style={s.calBox}><Text style={s.calValue}>{cal.meta}</Text><Text style={s.calLabel}>meta kcal</Text></View></View></View></View></Modal>; }
 function Mini({ label, value }) { return <View style={s.mini}><Text style={s.miniLabel}>{label}</Text><Text style={s.miniValue} numberOfLines={1}>{value}</Text></View>; }
 
 const s = StyleSheet.create({
-  container:{flex:1,backgroundColor:'#1a1a22'},chatArea:{flex:1},
-  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:52,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#2a2a35'},backBtn:{width:36,height:36,borderRadius:10,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},backText:{color:'white',fontSize:18,fontWeight:'900'},headerCenter:{flex:1,alignItems:'center',marginHorizontal:10},headerTitle:{color:'white',fontSize:18,fontWeight:'900'},headerSub:{color:'#777',fontSize:11,marginTop:2},botBadge:{width:36,height:36,borderRadius:12,backgroundColor:'rgba(94,234,212,0.12)',borderWidth:1,borderColor:'rgba(94,234,212,0.35)',alignItems:'center',justifyContent:'center',position:'relative'},botBadgeText:{fontSize:18},botDot:{position:'absolute',right:-2,top:-2,width:10,height:10,borderRadius:5,backgroundColor:'#5eead4',borderWidth:2,borderColor:'#1a1a22'},
-  body:{padding:16,paddingBottom:20},heroCard:{backgroundColor:'rgba(124,111,205,0.14)',borderWidth:1,borderColor:'rgba(124,111,205,0.35)',borderRadius:18,padding:16,marginBottom:14},heroTop:{flexDirection:'row',alignItems:'center',gap:12},heroIcon:{width:48,height:48,borderRadius:16,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},heroIconText:{fontSize:26},heroTitle:{color:'white',fontSize:18,fontWeight:'900'},heroSub:{color:'#aaa',fontSize:12,marginTop:3},disclaimer:{color:'#facc15',fontSize:11,lineHeight:16,marginTop:12,fontWeight:'700'},sectionLabel:{color:'#777',fontSize:11,fontWeight:'900',textTransform:'uppercase',letterSpacing:.6,marginTop:4,marginBottom:10},
-  msgRow:{width:'100%',marginBottom:10,flexDirection:'row'},msgLeft:{justifyContent:'flex-start'},msgRight:{justifyContent:'flex-end'},bubble:{maxWidth:'84%',borderRadius:16,padding:13},bubbleIa:{backgroundColor:'#2a2a35',borderWidth:1,borderColor:'#333',borderTopLeftRadius:4},bubbleUser:{backgroundColor:'#7c6fcd',borderTopRightRadius:4},bubbleIaText:{color:'#ddd',fontSize:13,lineHeight:19},bubbleUserText:{color:'white',fontSize:13,lineHeight:19,fontWeight:'700'},typing:{color:'#5eead4',fontSize:13,fontWeight:'800'},
-  suggestionBox:{gap:8,marginBottom:8},suggestion:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:'#2a2a35',borderRadius:12,padding:12,borderWidth:1,borderColor:'#333'},suggestionIcon:{fontSize:17},suggestionText:{color:'#ddd',fontSize:13,fontWeight:'700',flex:1},
-  inputBar:{flexDirection:'row',alignItems:'flex-end',gap:10,paddingHorizontal:12,paddingTop:10,borderTopWidth:1,borderTopColor:'#2a2a35',backgroundColor:'#1f1f29'},input:{flex:1,maxHeight:96,backgroundColor:'#2a2a35',borderWidth:1,borderColor:'#3a3a45',borderRadius:14,paddingHorizontal:13,paddingVertical:11,color:'white',fontSize:13},sendBtn:{width:44,height:44,borderRadius:14,backgroundColor:'#7c6fcd',alignItems:'center',justifyContent:'center'},sendDisabled:{opacity:.45},sendText:{color:'white',fontSize:18,fontWeight:'900'},
-  modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-start',paddingTop:96,paddingHorizontal:16},profileCard:{backgroundColor:'#20202b',borderRadius:18,padding:14,borderWidth:1,borderColor:'#333'},modalHeader:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between',marginBottom:10},profileTitle:{color:'#5eead4',fontSize:14,fontWeight:'900'},profileSub:{color:'#888',fontSize:11,marginTop:3},closeBtn:{width:30,height:30,borderRadius:9,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},closeText:{color:'#aaa',fontWeight:'900'},profileGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},mini:{width:'48%',backgroundColor:'#2a2a35',borderRadius:10,padding:9,borderWidth:1,borderColor:'#363642'},miniLabel:{color:'#777',fontSize:10,fontWeight:'900',textTransform:'uppercase'},miniValue:{color:'white',fontSize:12,fontWeight:'800',marginTop:3},calRow:{flexDirection:'row',gap:8,marginTop:10},calBox:{flex:1,alignItems:'center',backgroundColor:'rgba(94,234,212,0.08)',borderWidth:1,borderColor:'rgba(94,234,212,0.25)',borderRadius:10,padding:9},calValue:{color:'#5eead4',fontSize:16,fontWeight:'900'},calLabel:{color:'#888',fontSize:10,marginTop:2,textTransform:'uppercase'},
+  container:{flex:1,backgroundColor:'#1a1a22'},chatArea:{flex:1},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:52,paddingBottom:14,borderBottomWidth:1,borderBottomColor:'#2a2a35'},backBtn:{width:36,height:36,borderRadius:10,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},backText:{color:'white',fontSize:18,fontWeight:'900'},headerCenter:{flex:1,alignItems:'center',marginHorizontal:10},headerTitle:{color:'white',fontSize:18,fontWeight:'900'},headerSub:{color:'#777',fontSize:11,marginTop:2},botBadge:{width:36,height:36,borderRadius:12,backgroundColor:'rgba(94,234,212,0.12)',borderWidth:1,borderColor:'rgba(94,234,212,0.35)',alignItems:'center',justifyContent:'center',position:'relative'},botBadgeText:{fontSize:18},botDot:{position:'absolute',right:-2,top:-2,width:10,height:10,borderRadius:5,backgroundColor:'#5eead4',borderWidth:2,borderColor:'#1a1a22'},body:{padding:16},heroCard:{backgroundColor:'rgba(124,111,205,0.14)',borderWidth:1,borderColor:'rgba(124,111,205,0.35)',borderRadius:18,padding:16,marginBottom:14},heroTop:{flexDirection:'row',alignItems:'center',gap:12},heroIcon:{width:48,height:48,borderRadius:16,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},heroIconText:{fontSize:26},heroTitle:{color:'white',fontSize:18,fontWeight:'900'},heroSub:{color:'#aaa',fontSize:12,marginTop:3},disclaimer:{color:'#facc15',fontSize:11,lineHeight:16,marginTop:12,fontWeight:'700'},sectionLabel:{color:'#777',fontSize:11,fontWeight:'900',textTransform:'uppercase',letterSpacing:.6,marginTop:4,marginBottom:10},msgRow:{width:'100%',marginBottom:10,flexDirection:'row'},msgLeft:{justifyContent:'flex-start'},msgRight:{justifyContent:'flex-end'},bubble:{maxWidth:'84%',borderRadius:16,padding:13},bubbleIa:{backgroundColor:'#2a2a35',borderWidth:1,borderColor:'#333',borderTopLeftRadius:4},bubbleUser:{backgroundColor:'#7c6fcd',borderTopRightRadius:4},bubbleIaText:{color:'#ddd',fontSize:13,lineHeight:19},bubbleUserText:{color:'white',fontSize:13,lineHeight:19,fontWeight:'700'},typing:{color:'#5eead4',fontSize:13,fontWeight:'800'},suggestionBox:{gap:8,marginBottom:8},suggestion:{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:'#2a2a35',borderRadius:12,padding:12,borderWidth:1,borderColor:'#333'},suggestionIcon:{fontSize:17},suggestionText:{color:'#ddd',fontSize:13,fontWeight:'700',flex:1},inputWrap:{position:'absolute',left:0,right:0},inputBar:{flexDirection:'row',alignItems:'flex-end',gap:10,paddingHorizontal:12,paddingTop:10,borderTopWidth:1,borderTopColor:'#2a2a35',backgroundColor:'#1f1f29'},input:{flex:1,maxHeight:96,backgroundColor:'#2a2a35',borderWidth:1,borderColor:'#3a3a45',borderRadius:14,paddingHorizontal:13,paddingVertical:11,color:'white',fontSize:13},sendBtn:{width:44,height:44,borderRadius:14,backgroundColor:'#7c6fcd',alignItems:'center',justifyContent:'center'},sendDisabled:{opacity:.45},sendText:{color:'white',fontSize:18,fontWeight:'900'},modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.65)',justifyContent:'flex-start',paddingTop:96,paddingHorizontal:16},profileCard:{backgroundColor:'#20202b',borderRadius:18,padding:14,borderWidth:1,borderColor:'#333'},modalHeader:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between',marginBottom:10},profileTitle:{color:'#5eead4',fontSize:14,fontWeight:'900'},profileSub:{color:'#888',fontSize:11,marginTop:3},closeBtn:{width:30,height:30,borderRadius:9,backgroundColor:'#2a2a35',alignItems:'center',justifyContent:'center'},closeText:{color:'#aaa',fontWeight:'900'},profileGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},mini:{width:'48%',backgroundColor:'#2a2a35',borderRadius:10,padding:9,borderWidth:1,borderColor:'#363642'},miniLabel:{color:'#777',fontSize:10,fontWeight:'900',textTransform:'uppercase'},miniValue:{color:'white',fontSize:12,fontWeight:'800',marginTop:3},calRow:{flexDirection:'row',gap:8,marginTop:10},calBox:{flex:1,alignItems:'center',backgroundColor:'rgba(94,234,212,0.08)',borderWidth:1,borderColor:'rgba(94,234,212,0.25)',borderRadius:10,padding:9},calValue:{color:'#5eead4',fontSize:16,fontWeight:'900'},calLabel:{color:'#888',fontSize:10,marginTop:2,textTransform:'uppercase'},
 });
