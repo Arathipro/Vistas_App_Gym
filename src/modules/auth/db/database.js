@@ -216,6 +216,16 @@ export async function saveProfile(usuario_id, datos) {
   );
 }
 
+// RF02 – Valida si el usuario ya completo la encuesta inicial
+export async function hasProfile(usuario_id) {
+  const database = await getDB();
+  const row = await database.getFirstAsync(
+    'SELECT usuario_id FROM perfiles WHERE usuario_id = ? LIMIT 1',
+    [usuario_id]
+  );
+  return !!row;
+}
+
 // RF04 – Obtener perfil completo (JOIN usuarios + perfiles)
 export async function getProfile(usuario_id) {
   const database = await getDB();
