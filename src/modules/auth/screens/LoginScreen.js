@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
-import { loginUser, saveSession } from '../db/database';
+import { loginUser, saveSession, hasProfile } from '../db/database';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppSession } from '../../../context/AppSessionContext';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
   const { setUser } = useAppSession();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(route?.params?.emailPrefill || '');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -17,16 +17,24 @@ export default function LoginScreen({ navigation }) {
     if (!email || !pass) return;
     setLoading(true);
     try {
+      const emailLower = email.trim().toLowerCase();
       const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, pass);
-      const user = await loginUser(email.trim().toLowerCase(), hash);
+      const user = await loginUser(emailLower, hash);
       if (!user) {
         Alert.alert('Credenciales incorrectas', 'El correo o contraseña no son correctos. Verifica tus datos.', [{ text: 'Reintentar' }]);
         return;
       }
-      const token = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, email + Date.now());
+      const token = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, emailLower + Date.now());
       await saveSession(user.id, token);
       await SecureStore.setItemAsync('session_token', token);
       setUser(user);
+
+      const perfilCompleto = await hasProfile(user.id);
+      if (!perfilCompleto) {
+        navigation.replace('Survey', { nombre: user.nombre, email: user.email, userId: user.id });
+        return;
+      }
+
       navigation.replace('Home', { user });
     } catch (error) {
       Alert.alert('Error', 'Ocurrió un error al iniciar sesión.');
