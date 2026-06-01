@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { saveEmailChangeCode, confirmEmailChange, emailExists, deleteSession } from '../db/database';
+import { enviarCodigoEmailDemo } from '../services/emailCodeDemoService';
 
 function generarCodigo() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -13,9 +14,6 @@ function generarCodigo() {
 export default function ChangeEmailScreen({ navigation, route }) {
   const { userId, currentEmail } = route.params || {};
 
-  // paso 0 = verificar identidad (correo actual)
-  // paso 1 = ingresar código de 6 dígitos
-  // paso 2 = ingresar nuevo correo
   const [paso, setPaso] = useState(0);
   const [codigoGenerado, setCodigoGenerado] = useState('');
   const [codigo, setCodigo] = useState(['', '', '', '', '', '']);
@@ -42,20 +40,33 @@ export default function ChangeEmailScreen({ navigation, route }) {
     }
   }
 
-  // ── Paso 0: generar y "enviar" código ──────────────────────────────────
   async function handleEnviarCodigo() {
     setLoading(true);
     try {
       const nuevoCodigo = generarCodigo();
-      const expira = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 min
+      const expira = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
       await saveEmailChangeCode(userId, nuevoCodigo, expira);
       setCodigoGenerado(nuevoCodigo);
 
-      // En producción aquí iría el envío real por correo
+      const envio = await enviarCodigoEmailDemo({
+        email: currentEmail,
+        code: nuevoCodigo,
+        purpose: 'change_email',
+      });
+
+      if (!envio.ok) {
+        Alert.alert(
+          'Código generado localmente',
+          `No se pudo enviar el correo real. Revisa que backend-correo-demo esté corriendo y que la URL esté configurada.\n\nCódigo para continuar la demo: ${nuevoCodigo}`,
+          [{ text: 'Entendido', onPress: () => setPaso(1) }]
+        );
+        return;
+      }
+
       Alert.alert(
-        'Código de verificación',
-        `Tu código es: ${nuevoCodigo}\n\n(En producción este código llegaría a ${currentEmail})`,
+        'Código enviado',
+        `Enviamos un código real a ${currentEmail}. Revisa tu bandeja de entrada o spam.`,
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
     } catch (error) {
@@ -65,7 +76,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
     }
   }
 
-  // ── Paso 1: verificar código ───────────────────────────────────────────
   function handleVerificarCodigo() {
     if (!codigoCompleto) return;
     if (codigo.join('') !== codigoGenerado) {
@@ -75,27 +85,23 @@ export default function ChangeEmailScreen({ navigation, route }) {
     setPaso(2);
   }
 
-  // ── Paso 2: confirmar nuevo correo y cerrar sesión ─────────────────────
   async function handleConfirmarCambio() {
     if (!puedeConfirmar) return;
     setLoading(true);
     try {
       const emailLower = nuevoEmail.trim().toLowerCase();
 
-      // No permitir el mismo correo actual
       if (emailLower === currentEmail?.toLowerCase()) {
         Alert.alert('Error', 'El nuevo correo no puede ser igual al actual.');
         return;
       }
 
-      // Verificar que no esté en uso por otra cuenta
       const existe = await emailExists(emailLower);
       if (existe) {
         Alert.alert('Error', 'Ese correo ya está registrado en otra cuenta.');
         return;
       }
 
-      // Confirmar el cambio en la BD (valida código + actualiza email)
       const resultado = await confirmEmailChange(userId, codigo.join(''), emailLower);
 
       if (!resultado.ok) {
@@ -103,7 +109,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
         return;
       }
 
-      // Cerrar sesión activa para forzar nuevo login con el correo actualizado
       const token = await SecureStore.getItemAsync('session_token');
       if (token) await deleteSession(token);
       await SecureStore.deleteItemAsync('session_token');
@@ -127,7 +132,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => paso === 0 ? navigation.goBack() : setPaso(p => p - 1)}>
           <Text style={styles.back}>←</Text>
@@ -136,7 +140,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
         <View style={{ width: 32 }} />
       </View>
 
-      {/* Indicador de pasos */}
       <View style={styles.stepsRow}>
         {['Verificar identidad', 'Código', 'Nuevo correo'].map((l, i) => (
           <View key={l} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
@@ -146,7 +149,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
         ))}
       </View>
 
-      {/* ── Paso 0: verificar identidad ── */}
       {paso === 0 && (
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>🔐</Text>
@@ -168,7 +170,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ── Paso 1: código 6 dígitos ── */}
       {paso === 1 && (
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
@@ -207,7 +208,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* ── Paso 2: nuevo correo ── */}
       {paso === 2 && (
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>✉️</Text>
