@@ -4,8 +4,9 @@
  *
  * Flujo:
  * 1. Carga la BD e inicializa (initDB)
- * 2. Si hay sesión activa guardada → va directo a Home
- * 3. Si no hay sesión → muestra la pantalla de bienvenida
+ * 2. Si hay sesión activa y perfil completo → va directo a Home
+ * 3. Si hay sesión activa sin encuesta → va a Survey
+ * 4. Si no hay sesión → muestra la pantalla de bienvenida
  *    con botones "Crear cuenta" y "Ya tengo cuenta"
  *
  * Fiel al diseño del prototipo App.jsx.
@@ -15,10 +16,9 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { initDB, getSession } from '../db/database';
+import { initDB, getSession, hasProfile } from '../db/database';
 
 export default function SplashScreen({ navigation }) {
-  // 'loading' → verificando sesión | 'welcome' → mostrar pantalla de bienvenida
   const [estado, setEstado] = useState('loading');
 
   useEffect(() => {
@@ -28,17 +28,20 @@ export default function SplashScreen({ navigation }) {
       if (token) {
         const user = await getSession(token);
         if (user) {
+          const perfilCompleto = await hasProfile(user.id);
+          if (!perfilCompleto) {
+            navigation.replace('Survey', { nombre: user.nombre, email: user.email, userId: user.id });
+            return;
+          }
           navigation.replace('Home', { user });
           return;
         }
       }
-      // Sin sesión válida → muestra bienvenida
       setEstado('welcome');
     }
     init();
   }, []);
 
-  // ── Pantalla de carga inicial ──────────────────────────────────────────────
   if (estado === 'loading') {
     return (
       <View style={styles.loadingContainer}>
@@ -52,10 +55,8 @@ export default function SplashScreen({ navigation }) {
     );
   }
 
-  // ── Pantalla de bienvenida ─────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      {/* Logo y nombre */}
       <View style={styles.heroSection}>
         <View style={styles.logoBox}>
           <Text style={styles.logoEmoji}>💪</Text>
@@ -65,7 +66,6 @@ export default function SplashScreen({ navigation }) {
         <Text style={styles.gymTag}>Gimnasio DPUAS · Lázaro Cárdenas</Text>
       </View>
 
-      {/* Botones de acción */}
       <View style={styles.actionsSection}>
         <TouchableOpacity
           style={styles.btnPrimary}
@@ -92,7 +92,6 @@ export default function SplashScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // ── Carga ──
   loadingContainer: {
     flex: 1,
     backgroundColor: '#13132a',
@@ -100,7 +99,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // ── Bienvenida ──
   container: {
     flex: 1,
     backgroundColor: '#13132a',
@@ -121,7 +119,6 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: 'transparent',
     backgroundImage: undefined,
-    // Gradiente simulado con sombra coloreada
     backgroundColor: '#7c6fcd',
     justifyContent: 'center',
     alignItems: 'center',
