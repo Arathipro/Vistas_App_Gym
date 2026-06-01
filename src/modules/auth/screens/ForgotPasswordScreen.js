@@ -6,13 +6,14 @@ import {
 import * as Crypto from 'expo-crypto';
 import { Ionicons } from '@expo/vector-icons';
 import { emailExists, savePasswordResetCode, resetPassword } from '../db/database';
+import { enviarCodigoEmailDemo } from '../services/emailCodeDemoService';
 
 function generarCodigo() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
 export default function ForgotPasswordScreen({ navigation }) {
-  const [paso, setPaso] = useState(0); // 0=correo, 1=código, 2=nueva contraseña
+  const [paso, setPaso] = useState(0);
   const [email, setEmail] = useState('');
   const [codigoGenerado, setCodigoGenerado] = useState('');
   const [codigo, setCodigo] = useState(['', '', '', '', '', '']);
@@ -43,27 +44,37 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
   }
 
-  // ── Paso 0: enviar código ──────────────────────────────────────────────
   async function handleEnviarCodigo() {
     if (!emailValido) return;
     setLoading(true);
     try {
-      const existe = await emailExists(email.trim().toLowerCase());
-      // Por seguridad no revelamos si existe; igual mostramos el código en dev
+      const emailLower = email.trim().toLowerCase();
+      const existe = await emailExists(emailLower);
       const codigo6 = generarCodigo();
-      const expira = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min
+      const expira = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
       if (existe) {
-        await savePasswordResetCode(email.trim().toLowerCase(), codigo6, expira);
+        await savePasswordResetCode(emailLower, codigo6, expira);
         setCodigoGenerado(codigo6);
+        const envio = await enviarCodigoEmailDemo({
+          email: emailLower,
+          code: codigo6,
+          purpose: 'reset_password',
+        });
+        if (!envio.ok) {
+          Alert.alert(
+            'Código generado localmente',
+            `No se pudo enviar el correo real. Revisa que backend-correo-demo esté corriendo y que la URL esté configurada.\n\nCódigo para continuar la demo: ${codigo6}`,
+            [{ text: 'Entendido', onPress: () => setPaso(1) }]
+          );
+          return;
+        }
       }
 
-      // En desarrollo mostramos el código en Alert
-      // En producción aquí iría el envío real por correo
       Alert.alert(
         'Código enviado',
         existe
-          ? `Tu código es: ${codigo6}\n\n(En producción llegaría a ${email})`
+          ? `Enviamos un código real a ${emailLower}. Revisa tu bandeja de entrada o spam.`
           : 'Si el correo está registrado, recibirás un código en los próximos minutos.',
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
@@ -74,10 +85,8 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
   }
 
-  // ── Paso 1: verificar código ───────────────────────────────────────────
   function handleVerificarCodigo() {
     if (!codigoCompleto) return;
-    // Validación local previa: si el código no coincide, avisar
     if (codigoGenerado && codigo.join('') !== codigoGenerado) {
       Alert.alert('Código incorrecto', 'El código que ingresaste no es válido. Verifica e intenta de nuevo.');
       return;
@@ -85,7 +94,6 @@ export default function ForgotPasswordScreen({ navigation }) {
     setPaso(2);
   }
 
-  // ── Paso 2: guardar nueva contraseña ──────────────────────────────────
   async function handleGuardarPassword() {
     if (!puedeGuardar) return;
     setLoading(true);
@@ -112,7 +120,6 @@ export default function ForgotPasswordScreen({ navigation }) {
     }
   }
 
-  // ── Confirmación final ─────────────────────────────────────────────────
   if (done) {
     return (
       <View style={styles.container}>
@@ -132,7 +139,6 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => paso === 0 ? navigation.goBack() : setPaso(p => p - 1)}>
           <Text style={styles.back}>←</Text>
@@ -141,7 +147,6 @@ export default function ForgotPasswordScreen({ navigation }) {
         <View style={{ width: 32 }} />
       </View>
 
-      {/* Indicador de pasos */}
       <View style={styles.stepsRow}>
         {['Correo', 'Código', 'Nueva contraseña'].map((l, i) => (
           <View key={l} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
@@ -151,7 +156,6 @@ export default function ForgotPasswordScreen({ navigation }) {
         ))}
       </View>
 
-      {/* ── Paso 0: correo ── */}
       {paso === 0 && (
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>🔐</Text>
@@ -182,7 +186,6 @@ export default function ForgotPasswordScreen({ navigation }) {
         </View>
       )}
 
-      {/* ── Paso 1: código ── */}
       {paso === 1 && (
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
@@ -220,7 +223,6 @@ export default function ForgotPasswordScreen({ navigation }) {
         </View>
       )}
 
-      {/* ── Paso 2: nueva contraseña ── */}
       {paso === 2 && (
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>🔑</Text>
@@ -310,7 +312,6 @@ const styles = StyleSheet.create({
   btnText: { color: 'white', fontWeight: '700', fontSize: 15 },
   linkBtn: { alignItems: 'center', marginTop: 14 },
   linkText: { color: '#555', fontSize: 13 },
-  // done
   doneBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 },
   doneIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(52,211,153,0.15)', justifyContent: 'center', alignItems: 'center' },
   doneTitle: { fontSize: 20, fontWeight: '800', color: 'white', textAlign: 'center' },
