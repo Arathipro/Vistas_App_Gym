@@ -24,7 +24,6 @@ export default function RegisterScreen({ navigation }) {
     try {
       const emailLower = email.trim().toLowerCase();
 
-      // Verificar si el correo ya existe antes de intentar insertar
       const existe = await emailExists(emailLower);
       if (existe) {
         Alert.alert('Error', 'Este correo ya está registrado.');
@@ -32,7 +31,6 @@ export default function RegisterScreen({ navigation }) {
       }
 
       const hash = await hashPassword(pass);
-      // registerUser devuelve el lastInsertRowId (el userId)
       const userId = await registerUser(nombre.trim(), emailLower, hash);
 
       if (!userId) {
@@ -40,8 +38,11 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
-      // ✅ Pasamos userId a Survey para que saveProfile funcione
-      navigation.replace('Survey', { nombre: nombre.trim(), email: emailLower, userId });
+      Alert.alert(
+        'Cuenta creada',
+        'Tu cuenta fue registrada correctamente. Ahora inicia sesión para completar tu encuesta inicial.',
+        [{ text: 'Ir a iniciar sesión', onPress: () => navigation.replace('Login', { emailPrefill: emailLower }) }]
+      );
     } catch (error) {
       console.error('Register error:', error);
       if (error.message?.includes('UNIQUE')) {
@@ -109,6 +110,8 @@ export default function RegisterScreen({ navigation }) {
         <Text style={styles.btnText}>{loading ? 'Registrando...' : 'Registrarme'}</Text>
       </TouchableOpacity>
 
+      <Text style={styles.note}>Después del registro iniciarás sesión y, en tu primer acceso, completarás la encuesta inicial.</Text>
+
       <TouchableOpacity onPress={() => navigation.replace('Login')}>
         <Text style={styles.link}>¿Ya tienes cuenta? <Text style={styles.linkAccent}>Iniciar sesión</Text></Text>
       </TouchableOpacity>
@@ -126,6 +129,7 @@ const styles = StyleSheet.create({
   reqRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
   req: { fontSize: 11, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)' },
   ok: { fontSize: 11, color: '#34d399', marginTop: 4 },
+  note: { color: '#777', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 12 },
   passContainer: { backgroundColor: '#2a2a35', borderRadius: 10, borderWidth: 1, borderColor: '#333', flexDirection: 'row', alignItems: 'center' },
   eyeBtn: { paddingHorizontal: 14 },
   btn: { backgroundColor: '#7c6fcd', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
