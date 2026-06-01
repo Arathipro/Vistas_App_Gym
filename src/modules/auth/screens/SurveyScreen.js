@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
 import { saveProfile } from '../db/database';
+import { useAppSession } from '../../../context/AppSessionContext';
 
 const STEPS = [
   { q: '¿Cuál es tu objetivo principal?', opts: ['Perder peso', 'Ganar músculo', 'Mantenerme', 'Mejorar resistencia', 'Tonificación'] },
@@ -16,6 +17,7 @@ const STEPS = [
 
 export default function SurveyScreen({ navigation, route }) {
   const { nombre, email, userId } = route.params || {};
+  const { setUser, setPerfil } = useAppSession();
   const [step, setStep] = useState(0);
   const [respuestas, setResp] = useState({});
   const [edad, setEdad] = useState('');
@@ -40,7 +42,7 @@ export default function SurveyScreen({ navigation, route }) {
       const nivel = respuestas[1] === 'Más de 2 años' ? 'Avanzado'
         : respuestas[1] === '1 – 2 años' ? 'Intermedio' : 'Principiante';
 
-      await saveProfile(userId, {
+      const perfil = {
         edad: parseInt(edad),
         peso: parseFloat(peso),
         altura: parseFloat(altura),
@@ -48,8 +50,13 @@ export default function SurveyScreen({ navigation, route }) {
         objetivo: respuestas[0] || 'Ganar músculo',
         nivel,
         diasSemana: respuestas[2] || '3 – 4 días',
-      });
-      navigation.replace('Home', { user: { id: userId, nombre, email } });
+      };
+
+      await saveProfile(userId, perfil);
+      const user = { id: userId, nombre, email };
+      setUser(user);
+      setPerfil(perfil);
+      navigation.replace('Home', { user });
     } catch (error) {
       Alert.alert('Error', 'No se pudo guardar tu perfil.');
     } finally {
