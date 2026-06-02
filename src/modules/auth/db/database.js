@@ -62,6 +62,37 @@ export async function initDB() {
       FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
     );
   `);
+
+  await migrateDB(database);
+}
+
+// ─── Migraciones seguras para SQLite local ya existente ──────────────────────
+async function columnExists(database, tableName, columnName) {
+  const columns = await database.getAllAsync(`PRAGMA table_info(${tableName})`);
+  return columns.some((col) => col.name === columnName);
+}
+
+async function addColumnIfMissing(database, tableName, columnName, definition) {
+  const exists = await columnExists(database, tableName, columnName);
+  if (exists) return;
+
+  await database.execAsync(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition};`);
+  console.log(`MIGRACION SQLite: ${tableName}.${columnName} agregada`);
+}
+
+async function migrateDB(database) {
+  await addColumnIfMissing(database, 'usuarios', 'email_pendiente', 'TEXT');
+  await addColumnIfMissing(database, 'usuarios', 'codigo_verificacion', 'TEXT');
+  await addColumnIfMissing(database, 'usuarios', 'codigo_expira_at', 'TEXT');
+  await addColumnIfMissing(database, 'usuarios', 'reset_codigo', 'TEXT');
+  await addColumnIfMissing(database, 'usuarios', 'reset_expira_at', 'TEXT');
+  await addColumnIfMissing(database, 'usuarios', 'rol', "TEXT NOT NULL DEFAULT 'usuario_app'");
+  await addColumnIfMissing(database, 'usuarios', 'created_at', "TEXT DEFAULT (datetime('now'))");
+
+  await addColumnIfMissing(database, 'perfiles', 'nivel', 'TEXT');
+  await addColumnIfMissing(database, 'perfiles', 'dias_semana', 'TEXT');
+
+  await addColumnIfMissing(database, 'sesiones', 'created_at', "TEXT DEFAULT (datetime('now'))");
 }
 
 // ─── Utilidades ──────────────────────────────────────────────────────────────
