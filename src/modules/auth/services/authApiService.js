@@ -154,3 +154,44 @@ export async function saveProfile(perfil) {
 
   return normalizePerfil(data.perfil);
 }
+
+export async function requestPasswordResetCode({ email }) {
+  return request('/api/auth/password/request-code', {
+    method: 'POST',
+    body: {
+      email: email.trim().toLowerCase(),
+    },
+    token: null,
+  });
+}
+
+export async function confirmPasswordReset({ email, code, password }) {
+  return request('/api/auth/password/confirm', {
+    method: 'POST',
+    body: {
+      email: email.trim().toLowerCase(),
+      code,
+      password,
+    },
+    token: null,
+  });
+}
+
+export async function requestEmailChangeCode() {
+  return request('/api/auth/email/request-code', {
+    method: 'POST',
+  });
+}
+
+export async function confirmEmailChange({ code, newEmail }) {
+  const data = await request('/api/auth/email/confirm', {
+    method: 'POST',
+    body: {
+      code,
+      newEmail: newEmail.trim().toLowerCase(),
+    },
+  });
+
+  await clearSessionToken();
+  return data;
+}
