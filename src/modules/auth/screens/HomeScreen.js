@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { getProfile, deleteSession } from '../db/database';
 import DrawerMenu from '../../../shared/components/DrawerMenu';
 import { useAppSession } from '../../../context/AppSessionContext';
+import { getProfile, logout as logoutApi } from '../services/authApiService';
 
 export default function HomeScreen({ navigation, route }) {
   const { user: userCtx, setUser, perfil, setPerfil, clearSession } = useAppSession();
@@ -16,17 +15,29 @@ export default function HomeScreen({ navigation, route }) {
   }, [routeUser, userCtx, setUser]);
 
   useEffect(() => {
-    if (user?.id) {
-      loadProfile();
-      const unsub = navigation.addListener('focus', loadProfile);
-      return unsub;
-    }
-  }, [navigation, user?.id]);
+    loadProfile();
+    const unsub = navigation.addListener('focus', loadProfile);
+    return unsub;
+  }, [navigation]);
 
   async function loadProfile() {
-    if (!user?.id) return;
-    const data = await getProfile(user.id);
-    setPerfil(data);
+    try {
+      const data = await getProfile();
+      if (data) {
+        setPerfil(data);
+        if (!userCtx && data.id_usuario) {
+          setUser({
+            id: data.id_usuario,
+            id_usuario: data.id_usuario,
+            nombre: data.nombre,
+            email: data.email,
+            rol: data.rol,
+          });
+        }
+      }
+    } catch (error) {
+      console.log('Home profile error:', error.message);
+    }
   }
 
   async function handleLogout() {
@@ -34,13 +45,11 @@ export default function HomeScreen({ navigation, route }) {
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Sí, salir', style: 'destructive', onPress: async () => {
-          const token = await SecureStore.getItemAsync('session_token');
-          if (token) await deleteSession(token);
-          await SecureStore.deleteItemAsync('session_token');
+          await logoutApi();
           clearSession();
           navigation.replace('Login');
-        }
-      }
+        },
+      },
     ]);
   }
 
