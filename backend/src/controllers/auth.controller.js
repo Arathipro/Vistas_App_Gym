@@ -1,4 +1,5 @@
 import { query } from '../config/db.js';
+import { sendVerificationEmail } from '../services/email.service.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { signSessionToken, hashToken } from '../utils/token.js';
 
@@ -8,6 +9,15 @@ function generarCodigo() {
 
 function addMinutes(minutes) {
   return new Date(Date.now() + minutes * 60 * 1000);
+}
+
+function shouldExposeDevCode() {
+  return process.env.NODE_ENV !== 'production';
+}
+
+function withDevCode(payload, code) {
+  if (!shouldExposeDevCode()) return payload;
+  return { ...payload, dev_code: code };
 }
 
 function sanitizeUser(row) {
@@ -57,6 +67,16 @@ async function findValidCode({ email, code, tipo, idUsuario = null }) {
   return { ok: true, codeRow };
 }
 
+async function sendCodeSafely({ to, code, tipo }) {
+  try {
+    const result = await sendVerificationEmail({ to, code, tipo });
+    return result;
+  } catch (error) {
+    console.error('Error enviando correo:', error.message);
+    return { ok: false, error: error.message };
+  }
+}
+
 export async function requestRegisterCode(req, res, next) {
   try {
     const { nombre, email, password } = req.body;
@@ -84,9 +104,10 @@ export async function requestRegisterCode(req, res, next) {
       expiraAt: expiresAt,
     });
 
-    console.log('Código registro generado:', { email: emailLower, code });
+    const emailResult = await sendCodeSafely({ to: emailLower, code, tipo: 'registro' });
+    console.log('Código registro generado:', { email: emailLower, code, emailResult });
 
-    return res.json({ ok: true, message: 'Código de verificación generado.', dev_code: code });
+    return res.json(withDevCode({ ok: true, message: 'Código de verificación generado.', email_sent: emailResult.ok }, code));
   } catch (error) {
     next(error);
   }
@@ -162,9 +183,10 @@ export async function requestPasswordResetCode(req, res, next) {
       expiraAt: expiresAt,
     });
 
-    console.log('Código reset generado:', { email: emailLower, code });
+    const emailResult = await sendCodeSafely({ to: emailLower, code, tipo: 'reset_password' });
+    console.log('Código reset generado:', { email: emailLower, code, emailResult });
 
-    return res.json({ ok: true, message: 'Código de recuperación generado.', dev_code: code });
+    return res.json(withDevCode({ ok: true, message: 'Código de recuperación generado.', email_sent: emailResult.ok }, code));
   } catch (error) {
     next(error);
   }
@@ -241,9 +263,10 @@ export async function requestEmailChangeCode(req, res, next) {
       expiraAt: expiresAt,
     });
 
-    console.log('Código cambio email generado:', { email: user.email, code });
+    const emailResult = await sendCodeSafely({ to: user.email, code, tipo: 'cambio_email' });
+    console.log('Código cambio email generado:', { email: user.email, code, emailResult });
 
-    return res.json({ ok: true, message: 'Código de cambio de correo generado.', dev_code: code });
+    return res.json(withDevCode({ ok: true, message: 'Código de cambio de correo generado.', email_sent: emailResult.ok }, code));
   } catch (error) {
     next(error);
   }
