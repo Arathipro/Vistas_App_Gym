@@ -1,21 +1,16 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, Alert
+  StyleSheet, ScrollView, Alert,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { saveEmailChangeCode, confirmEmailChange, emailExists, deleteSession } from '../db/database';
-import { enviarCodigoEmailDemo } from '../services/emailCodeDemoService';
-
-function generarCodigo() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
+import { confirmEmailChange, requestEmailChangeCode } from '../services/authApiService';
+import { useAppSession } from '../../../context/AppSessionContext';
 
 export default function ChangeEmailScreen({ navigation, route }) {
-  const { userId, currentEmail } = route.params || {};
+  const { currentEmail } = route.params || {};
+  const { clearSession } = useAppSession();
 
   const [paso, setPaso] = useState(0);
-  const [codigoGenerado, setCodigoGenerado] = useState('');
   const [codigo, setCodigo] = useState(['', '', '', '', '', '']);
   const [nuevoEmail, setNuevoEmail] = useState('');
   const [confirmarEmail, setConfirmarEmail] = useState('');
@@ -43,34 +38,17 @@ export default function ChangeEmailScreen({ navigation, route }) {
   async function handleEnviarCodigo() {
     setLoading(true);
     try {
-      const nuevoCodigo = generarCodigo();
-      const expira = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-
-      await saveEmailChangeCode(userId, nuevoCodigo, expira);
-      setCodigoGenerado(nuevoCodigo);
-
-      const envio = await enviarCodigoEmailDemo({
-        email: currentEmail,
-        code: nuevoCodigo,
-        purpose: 'change_email',
-      });
-
-      if (!envio.ok) {
-        Alert.alert(
-          'Código generado localmente',
-          `No se pudo enviar el correo real. Revisa que backend-correo-demo esté corriendo y que la URL esté configurada.\n\nCódigo para continuar la demo: ${nuevoCodigo}`,
-          [{ text: 'Entendido', onPress: () => setPaso(1) }]
-        );
-        return;
-      }
+      const result = await requestEmailChangeCode();
+      setCodigo(['', '', '', '', '', '']);
+      const devCodeMsg = result?.dev_code ? `\n\nCódigo de desarrollo: ${result.dev_code}` : '';
 
       Alert.alert(
-        'Código enviado',
-        `Enviamos un código real a ${currentEmail}. Revisa tu bandeja de entrada o spam.`,
+        'Código generado',
+        `Generamos un código para verificar tu correo actual: ${currentEmail}.${devCodeMsg}`,
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
     } catch (error) {
-      Alert.alert('Error', 'No se pudo generar el código. Intenta de nuevo.');
+      Alert.alert('Error', error.message || 'No se pudo generar el código. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -78,10 +56,6 @@ export default function ChangeEmailScreen({ navigation, route }) {
 
   function handleVerificarCodigo() {
     if (!codigoCompleto) return;
-    if (codigo.join('') !== codigoGenerado) {
-      Alert.alert('Código incorrecto', 'El código que ingresaste no es válido. Verifica e intenta de nuevo.');
-      return;
-    }
     setPaso(2);
   }
 
@@ -96,22 +70,12 @@ export default function ChangeEmailScreen({ navigation, route }) {
         return;
       }
 
-      const existe = await emailExists(emailLower);
-      if (existe) {
-        Alert.alert('Error', 'Ese correo ya está registrado en otra cuenta.');
-        return;
-      }
+      await confirmEmailChange({
+        code: codigo.join(''),
+        newEmail: emailLower,
+      });
 
-      const resultado = await confirmEmailChange(userId, codigo.join(''), emailLower);
-
-      if (!resultado.ok) {
-        Alert.alert('Error', resultado.error || 'No se pudo actualizar el correo.');
-        return;
-      }
-
-      const token = await SecureStore.getItemAsync('session_token');
-      if (token) await deleteSession(token);
-      await SecureStore.deleteItemAsync('session_token');
+      clearSession();
 
       Alert.alert(
         '✅ Correo actualizado',
@@ -119,12 +83,12 @@ export default function ChangeEmailScreen({ navigation, route }) {
         [
           {
             text: 'Ir al inicio de sesión',
-            onPress: () => navigation.replace('Login'),
+            onPress: () => navigation.replace('Login', { emailPrefill: emailLower }),
           },
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el correo. Intenta de nuevo.');
+      Alert.alert('Error', error.message || 'No se pudo actualizar el correo. Intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -155,7 +119,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
           <Text style={styles.cardTitle}>Verificación de seguridad</Text>
           <Text style={styles.cardText}>
             Para cambiar tu correo primero verificaremos que eres el titular de la cuenta.
-            Enviaremos un código de verificación a:
+            Generaremos un código para tu correo actual:
           </Text>
           <View style={styles.emailBadge}>
             <Text style={styles.emailBadgeText}>📧 {currentEmail}</Text>
@@ -175,7 +139,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
           <Text style={styles.cardTitle}>Ingresa el código</Text>
           <Text style={styles.cardText}>
-            Ingresa el código de 6 dígitos enviado a{' '}
+            Ingresa el código de 6 dígitos generado para{' '}
             <Text style={{ color: '#7c6fcd', fontWeight: '600' }}>{currentEmail}</Text>. Expira en 15 minutos.
           </Text>
           <View style={styles.digitRow}>
@@ -201,7 +165,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.linkBtn}
-            onPress={() => { setCodigo(['', '', '', '', '', '']); setPaso(0); handleEnviarCodigo(); }}
+            onPress={() => { setCodigo(['', '', '', '', '', '']); handleEnviarCodigo(); }}
           >
             <Text style={styles.linkText}>¿No recibiste el código? Reenviar</Text>
           </TouchableOpacity>
