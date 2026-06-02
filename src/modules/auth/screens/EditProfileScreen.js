@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { updateProfile } from '../db/database';
+import { saveProfile } from '../services/authApiService';
+import { useAppSession } from '../../../context/AppSessionContext';
 
 const OBJETIVOS = ['Perder peso', 'Ganar músculo', 'Mantenerme', 'Tonificación', 'Mejorar resistencia'];
 
 export default function EditProfileScreen({ navigation, route }) {
-  const { userId, perfil } = route.params || {};
+  const { perfil } = route.params || {};
+  const { setPerfil, setUser } = useAppSession();
 
   const [nombre, setNombre] = useState(perfil?.nombre || '');
   const [edad, setEdad] = useState(String(perfil?.edad || ''));
@@ -21,29 +23,52 @@ export default function EditProfileScreen({ navigation, route }) {
     if (!puedeGuardar) return;
     setLoading(true);
     try {
-      await updateProfile(userId, {
+      const perfilGuardado = await saveProfile({
         nombre: nombre.trim(),
-        email: perfil?.email,
         edad: parseInt(edad),
         peso: parseFloat(peso),
         altura: parseFloat(altura),
         genero,
         objetivo,
+        nivel: perfil?.nivel || 'Principiante',
+        diasSemana: perfil?.diasSemana || perfil?.dias_semana || '3 – 4 días',
       });
+
+      const perfilActualizado = {
+        ...perfil,
+        ...perfilGuardado,
+        nombre: nombre.trim(),
+        edad: parseInt(edad),
+        peso: parseFloat(peso),
+        altura: parseFloat(altura),
+        genero,
+        objetivo,
+      };
+
+      setPerfil(perfilActualizado);
+      if (perfilActualizado?.id_usuario) {
+        setUser({
+          id: perfilActualizado.id_usuario,
+          id_usuario: perfilActualizado.id_usuario,
+          nombre: perfilActualizado.nombre,
+          email: perfilActualizado.email,
+          rol: perfilActualizado.rol,
+        });
+      }
+
       Alert.alert('✅ Listo', 'Perfil actualizado correctamente.', [
-        { text: 'OK', onPress: () => navigation.goBack() }
+        { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el perfil.');
+      Alert.alert('Error', error.message || 'No se pudo actualizar el perfil.');
     } finally {
       setLoading(false);
     }
   }
 
-  // ✅ Handler real para cambiar correo (RF07)
   function handleChangeEmail() {
     navigation.navigate('ChangeEmail', {
-      userId,
+      userId: perfil?.id_usuario,
       currentEmail: perfil?.email,
     });
   }
@@ -74,7 +99,6 @@ export default function EditProfileScreen({ navigation, route }) {
           value={perfil?.email || ''}
           editable={false}
         />
-        {/* ✅ Botón Cambiar con handler real */}
         <TouchableOpacity style={styles.btnCambiar} onPress={handleChangeEmail}>
           <Text style={styles.btnCambiarText}>Cambiar</Text>
         </TouchableOpacity>
