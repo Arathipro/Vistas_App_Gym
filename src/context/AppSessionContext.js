@@ -5,10 +5,12 @@ const AppSessionContext = createContext(null);
 export function AppSessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
+  const [token, setToken] = useState(null);
 
   function clearSession() {
     setUser(null);
     setPerfil(null);
+    setToken(null);
   }
 
   const value = useMemo(() => ({
@@ -16,8 +18,10 @@ export function AppSessionProvider({ children }) {
     setUser,
     perfil,
     setPerfil,
+    token,
+    setToken,
     clearSession,
-  }), [user, perfil]);
+  }), [user, perfil, token]);
 
   return (
     <AppSessionContext.Provider value={value}>
