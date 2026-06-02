@@ -2,41 +2,63 @@
  * SplashScreen.js
  * Pantalla de inicio de la app.
  *
- * Flujo:
- * 1. Carga la BD e inicializa (initDB)
- * 2. Si hay sesión activa y perfil completo → va directo a Home
- * 3. Si hay sesión activa sin encuesta → va a Survey
- * 4. Si no hay sesión → muestra la pantalla de bienvenida
- *    con botones "Crear cuenta" y "Ya tengo cuenta"
- *
- * Fiel al diseño del prototipo App.jsx.
+ * Flujo actual:
+ * 1. Inicializa SQLite local como respaldo temporal.
+ * 2. Si hay token backend válido y perfil completo → Home.
+ * 3. Si hay token backend válido sin encuesta → Survey.
+ * 4. Si no hay sesión backend → bienvenida.
  */
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { initDB, getSession, hasProfile } from '../db/database';
+import { initDB } from '../db/database';
+import { getProfile, getSessionToken, isProfileComplete } from '../services/authApiService';
+import { useAppSession } from '../../../context/AppSessionContext';
 
 export default function SplashScreen({ navigation }) {
   const [estado, setEstado] = useState('loading');
+  const { setUser, setPerfil, setToken, clearSession } = useAppSession();
 
   useEffect(() => {
     async function init() {
-      await initDB();
-      const token = await SecureStore.getItemAsync('session_token');
-      if (token) {
-        const user = await getSession(token);
-        if (user) {
-          const perfilCompleto = await hasProfile(user.id);
-          if (!perfilCompleto) {
-            navigation.replace('Survey', { nombre: user.nombre, email: user.email, userId: user.id });
+      try {
+        await initDB();
+
+        const token = await getSessionToken();
+        if (token) {
+          setToken(token);
+          const perfil = await getProfile();
+          if (perfil?.id_usuario) {
+            const user = {
+              id: perfil.id_usuario,
+              id_usuario: perfil.id_usuario,
+              nombre: perfil.nombre,
+              email: perfil.email,
+              rol: perfil.rol,
+            };
+
+            setUser(user);
+            setPerfil(perfil);
+
+            if (!isProfileComplete(perfil)) {
+              navigation.replace('Survey', {
+                nombre: user.nombre,
+                email: user.email,
+                userId: user.id,
+              });
+              return;
+            }
+
+            navigation.replace('Home', { user });
             return;
           }
-          navigation.replace('Home', { user });
-          return;
         }
+      } catch (error) {
+        console.log('Splash backend session error:', error.message);
+        clearSession();
       }
+
       setEstado('welcome');
     }
     init();
@@ -117,8 +139,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 32,
-    backgroundColor: 'transparent',
-    backgroundImage: undefined,
     backgroundColor: '#7c6fcd',
     justifyContent: 'center',
     alignItems: 'center',
