@@ -1,12 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
-import { hashPassword, registerUser, emailExists } from '../db/database';
 import { Ionicons } from '@expo/vector-icons';
-import { enviarCodigoEmailDemo } from '../services/emailCodeDemoService';
-
-function generarCodigo() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
+import { registerConfirm, registerRequestCode } from '../services/authApiService';
 
 export default function RegisterScreen({ navigation }) {
   const [paso, setPaso] = useState(0);
@@ -14,7 +9,6 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [pass2, setPass2] = useState('');
-  const [codigoGenerado, setCodigoGenerado] = useState('');
   const [codigo, setCodigo] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
 
@@ -46,36 +40,25 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     try {
       const emailLower = email.trim().toLowerCase();
-      const existe = await emailExists(emailLower);
-      if (existe) {
-        Alert.alert('Error', 'Este correo ya está registrado.');
-        return;
-      }
-
-      const nuevoCodigo = generarCodigo();
-      setCodigoGenerado(nuevoCodigo);
-      const envio = await enviarCodigoEmailDemo({
+      const result = await registerRequestCode({
+        nombre,
         email: emailLower,
-        code: nuevoCodigo,
-        purpose: 'register_user',
+        password: pass,
       });
 
-      if (!envio.ok) {
-        Alert.alert(
-          'Código generado localmente',
-          `No se pudo enviar el correo real. Revisa backend-correo-demo y la URL configurada.\n\nCódigo para continuar la demo: ${nuevoCodigo}`,
-          [{ text: 'Entendido', onPress: () => setPaso(1) }]
-        );
-        return;
-      }
+      setCodigo(['', '', '', '', '', '']);
+      setPaso(1);
+
+      const devCodeMsg = result?.dev_code
+        ? `\n\nCódigo de desarrollo: ${result.dev_code}`
+        : '';
 
       Alert.alert(
-        'Código enviado',
-        `Enviamos un código real a ${emailLower}. Revisa tu bandeja de entrada o spam.`,
-        [{ text: 'Entendido', onPress: () => setPaso(1) }]
+        'Código generado',
+        `Generamos el código para ${emailLower}. Revisa el correo cuando se integre Nodemailer.${devCodeMsg}`
       );
     } catch (error) {
-      Alert.alert('Error', 'No se pudo enviar el código de verificación.');
+      Alert.alert('Error', error.message || 'No se pudo generar el código de verificación.');
     } finally {
       setLoading(false);
     }
@@ -83,27 +66,14 @@ export default function RegisterScreen({ navigation }) {
 
   async function handleRegister() {
     if (!codigoCompleto) return;
-    if (codigo.join('') !== codigoGenerado) {
-      Alert.alert('Código incorrecto', 'El código ingresado no coincide. Verifica tu correo e intenta de nuevo.');
-      return;
-    }
 
     setLoading(true);
     try {
       const emailLower = email.trim().toLowerCase();
-      const existe = await emailExists(emailLower);
-      if (existe) {
-        Alert.alert('Error', 'Este correo ya está registrado.');
-        return;
-      }
-
-      const hash = await hashPassword(pass);
-      const userId = await registerUser(nombre.trim(), emailLower, hash);
-
-      if (!userId) {
-        Alert.alert('Error', 'No se pudo crear la cuenta. Intenta de nuevo.');
-        return;
-      }
+      await registerConfirm({
+        email: emailLower,
+        code: codigo.join(''),
+      });
 
       Alert.alert(
         'Cuenta creada',
@@ -111,12 +81,7 @@ export default function RegisterScreen({ navigation }) {
         [{ text: 'Ir a iniciar sesión', onPress: () => navigation.replace('Login', { emailPrefill: emailLower }) }]
       );
     } catch (error) {
-      console.error('Register error:', error);
-      if (error.message?.includes('UNIQUE')) {
-        Alert.alert('Error', 'Este correo ya está registrado.');
-      } else {
-        Alert.alert('Error', 'Ocurrió un error al registrarte: ' + error.message);
-      }
+      Alert.alert('Error', error.message || 'No se pudo crear la cuenta.');
     } finally {
       setLoading(false);
     }
@@ -207,7 +172,7 @@ export default function RegisterScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
           <Text style={styles.cardTitle}>Verifica tu correo</Text>
-          <Text style={styles.cardText}>Ingresa el código de 6 dígitos enviado a <Text style={styles.mailText}>{email.trim().toLowerCase()}</Text>.</Text>
+          <Text style={styles.cardText}>Ingresa el código de 6 dígitos generado para <Text style={styles.mailText}>{email.trim().toLowerCase()}</Text>.</Text>
           <View style={styles.digitRow}>
             {codigo.map((d, i) => (
               <TextInput
@@ -227,7 +192,7 @@ export default function RegisterScreen({ navigation }) {
             onPress={handleRegister} disabled={!codigoCompleto || loading}>
             <Text style={styles.btnText}>{loading ? 'Creando cuenta...' : 'Verificar y crear cuenta'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.linkBtn} onPress={() => { setCodigo(['', '', '', '', '', '']); handleEnviarCodigoRegistro(); }}>
+          <TouchableOpacity style={styles.linkBtn} onPress={handleEnviarCodigoRegistro} disabled={loading}>
             <Text style={styles.linkText}>¿No recibiste el código? Reenviar</Text>
           </TouchableOpacity>
         </View>
