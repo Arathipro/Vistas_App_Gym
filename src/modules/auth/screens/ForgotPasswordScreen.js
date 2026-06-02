@@ -1,21 +1,14 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, ScrollView, Alert
+  StyleSheet, ScrollView, Alert,
 } from 'react-native';
-import * as Crypto from 'expo-crypto';
 import { Ionicons } from '@expo/vector-icons';
-import { emailExists, savePasswordResetCode, resetPassword } from '../db/database';
-import { enviarCodigoEmailDemo } from '../services/emailCodeDemoService';
-
-function generarCodigo() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
+import { confirmPasswordReset, requestPasswordResetCode } from '../services/authApiService';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [paso, setPaso] = useState(0);
   const [email, setEmail] = useState('');
-  const [codigoGenerado, setCodigoGenerado] = useState('');
   const [codigo, setCodigo] = useState(['', '', '', '', '', '']);
   const [pass1, setPass1] = useState('');
   const [pass2, setPass2] = useState('');
@@ -48,38 +41,17 @@ export default function ForgotPasswordScreen({ navigation }) {
     if (!emailValido) return;
     setLoading(true);
     try {
-      const emailLower = email.trim().toLowerCase();
-      const existe = await emailExists(emailLower);
-      const codigo6 = generarCodigo();
-      const expira = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-      if (existe) {
-        await savePasswordResetCode(emailLower, codigo6, expira);
-        setCodigoGenerado(codigo6);
-        const envio = await enviarCodigoEmailDemo({
-          email: emailLower,
-          code: codigo6,
-          purpose: 'reset_password',
-        });
-        if (!envio.ok) {
-          Alert.alert(
-            'Código generado localmente',
-            `No se pudo enviar el correo real. Revisa que backend-correo-demo esté corriendo y que la URL esté configurada.\n\nCódigo para continuar la demo: ${codigo6}`,
-            [{ text: 'Entendido', onPress: () => setPaso(1) }]
-          );
-          return;
-        }
-      }
+      const result = await requestPasswordResetCode({ email });
+      setCodigo(['', '', '', '', '', '']);
+      const devCodeMsg = result?.dev_code ? `\n\nCódigo de desarrollo: ${result.dev_code}` : '';
 
       Alert.alert(
         'Código enviado',
-        existe
-          ? `Enviamos un código real a ${emailLower}. Revisa tu bandeja de entrada o spam.`
-          : 'Si el correo está registrado, recibirás un código en los próximos minutos.',
+        `Si el correo está registrado, recibirás un código en los próximos minutos.${devCodeMsg}`,
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
     } catch (e) {
-      Alert.alert('Error', 'No se pudo procesar la solicitud.');
+      Alert.alert('Error', e.message || 'No se pudo procesar la solicitud.');
     } finally {
       setLoading(false);
     }
@@ -87,10 +59,6 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   function handleVerificarCodigo() {
     if (!codigoCompleto) return;
-    if (codigoGenerado && codigo.join('') !== codigoGenerado) {
-      Alert.alert('Código incorrecto', 'El código que ingresaste no es válido. Verifica e intenta de nuevo.');
-      return;
-    }
     setPaso(2);
   }
 
@@ -98,23 +66,15 @@ export default function ForgotPasswordScreen({ navigation }) {
     if (!puedeGuardar) return;
     setLoading(true);
     try {
-      const nuevoHash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        pass1
-      );
-      const resultado = await resetPassword(
-        email.trim().toLowerCase(),
-        codigo.join(''),
-        nuevoHash
-      );
+      await confirmPasswordReset({
+        email: email.trim().toLowerCase(),
+        code: codigo.join(''),
+        password: pass1,
+      });
 
-      if (!resultado.ok) {
-        Alert.alert('Error', resultado.error || 'No se pudo actualizar la contraseña.');
-        return;
-      }
       setDone(true);
     } catch (e) {
-      Alert.alert('Error', 'No se pudo actualizar la contraseña.');
+      Alert.alert('Error', e.message || 'No se pudo actualizar la contraseña.');
     } finally {
       setLoading(false);
     }
@@ -191,7 +151,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
           <Text style={styles.cardTitle}>Revisa tu correo</Text>
           <Text style={styles.cardText}>
-            Enviamos un código de 6 dígitos a <Text style={{ color: '#7c6fcd', fontWeight: '600' }}>{email}</Text>. Expira en 10 minutos.
+            Ingresa el código de 6 dígitos generado para <Text style={{ color: '#7c6fcd', fontWeight: '600' }}>{email}</Text>. Expira en 10 minutos.
           </Text>
           <View style={styles.digitRow}>
             {codigo.map((d, i) => (
@@ -250,7 +210,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 { label: 'Mayúsc.', ok: /[A-Z]/.test(pass1) },
                 { label: 'Número', ok: /[0-9]/.test(pass1) },
               ].map(r => (
-                <Text key={r.label} style={[styles.req, { color: r.ok ? '#34d399' : '#f87171' }]}>
+                <Text key={r.label} style={[styles.req, { color: r.ok ? '#34d399' : '#f87171' }]}> 
                   {r.ok ? '✓' : '✗'} {r.label}
                 </Text>
               ))}
@@ -258,7 +218,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           )}
 
           <Text style={styles.label}>Confirmar nueva contraseña</Text>
-          <View style={[styles.passContainer, pass2.length > 0 && { borderColor: passCoincide ? '#34d399' : '#f87171' }]}>
+          <View style={[styles.passContainer, pass2.length > 0 && { borderColor: passCoincide ? '#34d399' : '#f87171' }]}> 
             <TextInput
               style={[styles.input, { flex: 1, borderWidth: 0 }]}
               placeholder="Repite tu contraseña"
