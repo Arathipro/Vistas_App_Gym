@@ -3,12 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Modal, Pressable,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { getProfile, deleteSession } from '../db/database';
+import { getProfile, logout as logoutApi } from '../services/authApiService';
+import { useAppSession } from '../../../context/AppSessionContext';
 
 export default function ProfileScreen({ navigation, route }) {
   const { userId } = route.params || {};
-  const [perfil, setPerfil] = useState(null);
+  const { perfil: perfilCtx, setPerfil, clearSession } = useAppSession();
+  const [perfil, setPerfilLocal] = useState(perfilCtx || null);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   useEffect(() => {
@@ -18,14 +19,18 @@ export default function ProfileScreen({ navigation, route }) {
   }, [navigation]);
 
   async function loadProfile() {
-    const data = await getProfile(userId);
-    setPerfil(data);
+    try {
+      const data = await getProfile();
+      setPerfilLocal(data);
+      setPerfil(data);
+    } catch (error) {
+      console.log('Profile load error:', error.message);
+    }
   }
 
   async function handleLogout() {
-    const token = await SecureStore.getItemAsync('session_token');
-    if (token) await deleteSession(token);
-    await SecureStore.deleteItemAsync('session_token');
+    await logoutApi();
+    clearSession();
     navigation.replace('Login');
   }
 
@@ -36,7 +41,6 @@ export default function ProfileScreen({ navigation, route }) {
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-        {/* ── Header ── */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={styles.back}>←</Text>
@@ -45,7 +49,6 @@ export default function ProfileScreen({ navigation, route }) {
           <View style={{ width: 32 }} />
         </View>
 
-        {/* ── Avatar ── */}
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{iniciales}</Text>
@@ -54,7 +57,6 @@ export default function ProfileScreen({ navigation, route }) {
           <Text style={styles.email}>{perfil?.email || '—'}</Text>
         </View>
 
-        {/* ── Datos físicos ── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Datos físicos</Text>
           {[
@@ -72,15 +74,13 @@ export default function ProfileScreen({ navigation, route }) {
           ))}
         </View>
 
-        {/* ── Acciones ── */}
         <TouchableOpacity
           style={styles.btn}
-          onPress={() => navigation.navigate('EditProfile', { userId, perfil, onUpdate: loadProfile })}
+          onPress={() => navigation.navigate('EditProfile', { userId: userId || perfil?.id_usuario, perfil, onUpdate: loadProfile })}
         >
           <Text style={styles.btnText}>✏️ Editar perfil</Text>
         </TouchableOpacity>
 
-        {/* Botón Configurar privacidad — fiel al prototipo */}
         <TouchableOpacity
           style={styles.btnSecondary}
           onPress={() => navigation.navigate('Privacidad')}
@@ -97,7 +97,6 @@ export default function ProfileScreen({ navigation, route }) {
 
       </ScrollView>
 
-      {/* ── Bottom sheet de confirmación de logout ── */}
       <Modal
         visible={confirmLogout}
         transparent
@@ -150,7 +149,6 @@ const styles = StyleSheet.create({
   btnDanger:        { borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,90,90,0.3)' },
   btnDangerText:    { color: '#f87171', fontWeight: '600', fontSize: 14 },
 
-  // Bottom sheet
   sheetOverlay:     { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet:            { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#1a1a22', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: '#2a2a35', padding: 20, paddingBottom: 36, gap: 12 },
   sheetHandle:      { width: 36, height: 4, backgroundColor: '#3a3a45', borderRadius: 2, alignSelf: 'center', marginBottom: 8 },
