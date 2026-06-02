@@ -2,4 +2,4 @@
 // Cambia esta URL por la direccion local de tu PC cuando corras backend-correo-demo.
 
 export const EMAIL_DEMO_ENABLED = true;
-export const EMAIL_DEMO_API_URL = 'http://TU_IP_LOCAL:3000';
+export const EMAIL_DEMO_API_URL = 'http://192.168.1.72:3000';
