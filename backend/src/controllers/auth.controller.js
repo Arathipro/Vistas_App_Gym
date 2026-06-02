@@ -22,6 +22,41 @@ function sanitizeUser(row) {
   };
 }
 
+async function insertVerificationCode({ idUsuario = null, emailDestino, codigo, tipo, payload = null, expiraAt }) {
+  await query(
+    `INSERT INTO codigos_verificacion (id_usuario, email_destino, codigo, tipo, payload, expira_at)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [idUsuario, emailDestino, codigo, tipo, payload ? JSON.stringify(payload) : null, expiraAt]
+  );
+}
+
+async function findValidCode({ email, code, tipo, idUsuario = null }) {
+  const params = [email.trim().toLowerCase(), code, tipo];
+  const idFilter = idUsuario ? 'AND id_usuario = $4' : '';
+  if (idUsuario) params.push(idUsuario);
+
+  const result = await query(
+    `SELECT * FROM codigos_verificacion
+     WHERE lower(email_destino) = lower($1)
+       AND codigo = $2
+       AND tipo = $3
+       AND usado = false
+       ${idFilter}
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    params
+  );
+
+  if (result.rowCount === 0) return { ok: false, error: 'Código incorrecto.' };
+
+  const codeRow = result.rows[0];
+  if (new Date(codeRow.expira_at) < new Date()) {
+    return { ok: false, error: 'Código expirado.' };
+  }
+
+  return { ok: true, codeRow };
+}
+
 export async function requestRegisterCode(req, res, next) {
   try {
     const { nombre, email, password } = req.body;
@@ -41,16 +76,13 @@ export async function requestRegisterCode(req, res, next) {
     const passwordHash = await hashPassword(password);
     const expiresAt = addMinutes(15);
 
-    await query(
-      `INSERT INTO codigos_verificacion (email_destino, codigo, tipo, payload, expira_at)
-       VALUES ($1, $2, 'registro', $3, $4)`,
-      [
-        emailLower,
-        code,
-        JSON.stringify({ nombre: nombre.trim(), email: emailLower, password_hash: passwordHash }),
-        expiresAt,
-      ]
-    );
+    await insertVerificationCode({
+      emailDestino: emailLower,
+      codigo: code,
+      tipo: 'registro',
+      payload: { nombre: nombre.trim(), email: emailLower, password_hash: passwordHash },
+      expiraAt: expiresAt,
+    });
 
     console.log('Código registro generado:', { email: emailLower, code });
 
@@ -69,27 +101,13 @@ export async function confirmRegister(req, res, next) {
     }
 
     const emailLower = email.trim().toLowerCase();
+    const verification = await findValidCode({ email: emailLower, code, tipo: 'registro' });
 
-    const codeResult = await query(
-      `SELECT * FROM codigos_verificacion
-       WHERE lower(email_destino) = lower($1)
-         AND codigo = $2
-         AND tipo = 'registro'
-         AND usado = false
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [emailLower, code]
-    );
-
-    if (codeResult.rowCount === 0) {
-      return res.status(400).json({ ok: false, error: 'Código incorrecto.' });
+    if (!verification.ok) {
+      return res.status(400).json({ ok: false, error: verification.error });
     }
 
-    const codeRow = codeResult.rows[0];
-    if (new Date(codeRow.expira_at) < new Date()) {
-      return res.status(400).json({ ok: false, error: 'Código expirado.' });
-    }
-
+    const codeRow = verification.codeRow;
     const payload = codeRow.payload;
 
     const roleResult = await query('SELECT id_rol FROM roles WHERE nombre_rol = $1', ['usuario_app']);
@@ -108,6 +126,185 @@ export async function confirmRegister(req, res, next) {
   } catch (error) {
     if (error.code === '23505') {
       return res.status(409).json({ ok: false, error: 'Este correo ya está registrado.' });
+    }
+    next(error);
+  }
+}
+
+export async function requestPasswordResetCode(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ ok: false, error: 'Correo obligatorio.' });
+    }
+
+    const emailLower = email.trim().toLowerCase();
+    const userResult = await query(
+      `SELECT id_usuario, email FROM usuarios
+       WHERE lower(email) = lower($1)
+         AND activo = true`,
+      [emailLower]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.json({ ok: true, message: 'Si el correo está registrado, recibirás un código.' });
+    }
+
+    const user = userResult.rows[0];
+    const code = generarCodigo();
+    const expiresAt = addMinutes(10);
+
+    await insertVerificationCode({
+      idUsuario: user.id_usuario,
+      emailDestino: emailLower,
+      codigo: code,
+      tipo: 'reset_password',
+      expiraAt: expiresAt,
+    });
+
+    console.log('Código reset generado:', { email: emailLower, code });
+
+    return res.json({ ok: true, message: 'Código de recuperación generado.', dev_code: code });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function confirmPasswordReset(req, res, next) {
+  try {
+    const { email, code, password } = req.body;
+    if (!email || !code || !password) {
+      return res.status(400).json({ ok: false, error: 'Correo, código y nueva contraseña son obligatorios.' });
+    }
+
+    const emailLower = email.trim().toLowerCase();
+    const userResult = await query(
+      `SELECT id_usuario FROM usuarios
+       WHERE lower(email) = lower($1)
+         AND activo = true`,
+      [emailLower]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(400).json({ ok: false, error: 'Código incorrecto.' });
+    }
+
+    const user = userResult.rows[0];
+    const verification = await findValidCode({
+      email: emailLower,
+      code,
+      tipo: 'reset_password',
+      idUsuario: user.id_usuario,
+    });
+
+    if (!verification.ok) {
+      return res.status(400).json({ ok: false, error: verification.error });
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    await query(
+      `UPDATE usuarios
+       SET password_hash = $1,
+           updated_at = NOW()
+       WHERE id_usuario = $2`,
+      [passwordHash, user.id_usuario]
+    );
+
+    await query('UPDATE codigos_verificacion SET usado = true WHERE id_codigo = $1', [verification.codeRow.id_codigo]);
+    await query('UPDATE sesiones SET revoked_at = NOW() WHERE id_usuario = $1 AND revoked_at IS NULL', [user.id_usuario]);
+
+    return res.json({ ok: true, message: 'Contraseña actualizada correctamente.' });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function requestEmailChangeCode(req, res, next) {
+  try {
+    const idUsuario = req.user.id_usuario;
+
+    const userResult = await query('SELECT id_usuario, email FROM usuarios WHERE id_usuario = $1 AND activo = true', [idUsuario]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' });
+    }
+
+    const user = userResult.rows[0];
+    const code = generarCodigo();
+    const expiresAt = addMinutes(15);
+
+    await insertVerificationCode({
+      idUsuario,
+      emailDestino: user.email,
+      codigo: code,
+      tipo: 'cambio_email',
+      expiraAt: expiresAt,
+    });
+
+    console.log('Código cambio email generado:', { email: user.email, code });
+
+    return res.json({ ok: true, message: 'Código de cambio de correo generado.', dev_code: code });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function confirmEmailChange(req, res, next) {
+  try {
+    const idUsuario = req.user.id_usuario;
+    const { code, newEmail } = req.body;
+
+    if (!code || !newEmail) {
+      return res.status(400).json({ ok: false, error: 'Código y nuevo correo son obligatorios.' });
+    }
+
+    const userResult = await query('SELECT id_usuario, email FROM usuarios WHERE id_usuario = $1 AND activo = true', [idUsuario]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Usuario no encontrado.' });
+    }
+
+    const user = userResult.rows[0];
+    const emailLower = newEmail.trim().toLowerCase();
+
+    if (emailLower === user.email.toLowerCase()) {
+      return res.status(400).json({ ok: false, error: 'El nuevo correo no puede ser igual al actual.' });
+    }
+
+    const exists = await query(
+      'SELECT id_usuario FROM usuarios WHERE lower(email) = lower($1) AND id_usuario <> $2',
+      [emailLower, idUsuario]
+    );
+
+    if (exists.rowCount > 0) {
+      return res.status(409).json({ ok: false, error: 'Ese correo ya está registrado en otra cuenta.' });
+    }
+
+    const verification = await findValidCode({
+      email: user.email,
+      code,
+      tipo: 'cambio_email',
+      idUsuario,
+    });
+
+    if (!verification.ok) {
+      return res.status(400).json({ ok: false, error: verification.error });
+    }
+
+    await query(
+      `UPDATE usuarios
+       SET email = $1,
+           updated_at = NOW()
+       WHERE id_usuario = $2`,
+      [emailLower, idUsuario]
+    );
+
+    await query('UPDATE codigos_verificacion SET usado = true WHERE id_codigo = $1', [verification.codeRow.id_codigo]);
+    await query('UPDATE sesiones SET revoked_at = NOW() WHERE id_usuario = $1 AND revoked_at IS NULL', [idUsuario]);
+
+    return res.json({ ok: true, message: 'Correo actualizado correctamente.' });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ ok: false, error: 'Ese correo ya está registrado en otra cuenta.' });
     }
     next(error);
   }
