@@ -20,6 +20,7 @@ function crearTransporter() {
 }
 
 function textoMotivo(purpose) {
+  if (purpose === 'register_user') return 'verificacion de registro';
   if (purpose === 'change_email') return 'cambio de correo electronico';
   if (purpose === 'reset_password') return 'recuperacion de contrasena';
   return 'verificacion de seguridad';
