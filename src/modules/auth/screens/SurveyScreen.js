@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
-import { saveProfile } from '../db/database';
+import { saveProfile } from '../services/authApiService';
 import { useAppSession } from '../../../context/AppSessionContext';
 
 const STEPS = [
@@ -17,7 +17,7 @@ const STEPS = [
 
 export default function SurveyScreen({ navigation, route }) {
   const { nombre, email, userId } = route.params || {};
-  const { setUser, setPerfil } = useAppSession();
+  const { user: userCtx, setUser, setPerfil } = useAppSession();
   const [step, setStep] = useState(0);
   const [respuestas, setResp] = useState({});
   const [edad, setEdad] = useState('');
@@ -42,7 +42,7 @@ export default function SurveyScreen({ navigation, route }) {
       const nivel = respuestas[1] === 'Más de 2 años' ? 'Avanzado'
         : respuestas[1] === '1 – 2 años' ? 'Intermedio' : 'Principiante';
 
-      const perfil = {
+      const perfilPayload = {
         edad: parseInt(edad),
         peso: parseFloat(peso),
         altura: parseFloat(altura),
@@ -52,13 +52,19 @@ export default function SurveyScreen({ navigation, route }) {
         diasSemana: respuestas[2] || '3 – 4 días',
       };
 
-      await saveProfile(userId, perfil);
-      const user = { id: userId, nombre, email };
+      const perfilGuardado = await saveProfile(perfilPayload);
+      const user = userCtx || {
+        id: userId || perfilGuardado?.id_usuario,
+        id_usuario: userId || perfilGuardado?.id_usuario,
+        nombre: nombre || perfilGuardado?.nombre,
+        email: email || perfilGuardado?.email,
+      };
+
       setUser(user);
-      setPerfil(perfil);
+      setPerfil({ ...perfilGuardado, ...perfilPayload });
       navigation.replace('Home', { user });
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar tu perfil.');
+      Alert.alert('Error', error.message || 'No se pudo guardar tu perfil.');
     } finally {
       setLoading(false);
     }
