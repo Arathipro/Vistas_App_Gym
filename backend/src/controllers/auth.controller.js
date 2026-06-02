@@ -167,9 +167,19 @@ export async function login(req, res, next) {
 export async function saveProfile(req, res, next) {
   try {
     const idUsuario = req.user.id_usuario;
-    const { edad, peso, altura, genero, objetivo, nivel, diasSemana } = req.body;
+    const { nombre, edad, peso, altura, genero, objetivo, nivel, diasSemana } = req.body;
 
-    const result = await query(
+    if (nombre?.trim()) {
+      await query(
+        `UPDATE usuarios
+         SET nombre = $1,
+             updated_at = NOW()
+         WHERE id_usuario = $2`,
+        [nombre.trim(), idUsuario]
+      );
+    }
+
+    await query(
       `INSERT INTO perfiles (id_usuario, edad, peso, altura, genero, objetivo, nivel, dias_semana)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (id_usuario) DO UPDATE SET
@@ -180,9 +190,18 @@ export async function saveProfile(req, res, next) {
          objetivo = EXCLUDED.objetivo,
          nivel = EXCLUDED.nivel,
          dias_semana = EXCLUDED.dias_semana,
-         updated_at = NOW()
-       RETURNING *`,
+         updated_at = NOW()`,
       [idUsuario, edad, peso, altura, genero, objetivo, nivel, diasSemana]
+    );
+
+    const result = await query(
+      `SELECT u.id_usuario, u.nombre, u.email, r.nombre_rol AS rol,
+              p.edad, p.peso, p.altura, p.genero, p.objetivo, p.nivel, p.dias_semana
+       FROM usuarios u
+       JOIN roles r ON u.id_rol = r.id_rol
+       LEFT JOIN perfiles p ON u.id_usuario = p.id_usuario
+       WHERE u.id_usuario = $1`,
+      [idUsuario]
     );
 
     return res.json({ ok: true, perfil: result.rows[0] });
