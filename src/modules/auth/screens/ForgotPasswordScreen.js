@@ -43,7 +43,9 @@ export default function ForgotPasswordScreen({ navigation }) {
     try {
       const result = await requestPasswordResetCode({ email });
       setCodigo(['', '', '', '', '', '']);
-      const devCodeMsg = result?.dev_code ? `\n\nCódigo de desarrollo: ${result.dev_code}` : '';
+      const devCodeMsg = !result?.email_sent && result?.dev_code
+        ? `\n\nNo se pudo enviar el correo real. Código de desarrollo: ${result.dev_code}`
+        : '';
 
       Alert.alert(
         'Código enviado',
@@ -151,7 +153,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
           <Text style={styles.cardTitle}>Revisa tu correo</Text>
           <Text style={styles.cardText}>
-            Ingresa el código de 6 dígitos generado para <Text style={{ color: '#7c6fcd', fontWeight: '600' }}>{email}</Text>. Expira en 10 minutos.
+            Ingresa el código de 6 dígitos enviado a <Text style={{ color: '#7c6fcd', fontWeight: '600' }}>{email}</Text>. Expira en 10 minutos.
           </Text>
           <View style={styles.digitRow}>
             {codigo.map((d, i) => (
