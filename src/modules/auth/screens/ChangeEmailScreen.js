@@ -40,11 +40,13 @@ export default function ChangeEmailScreen({ navigation, route }) {
     try {
       const result = await requestEmailChangeCode();
       setCodigo(['', '', '', '', '', '']);
-      const devCodeMsg = result?.dev_code ? `\n\nCódigo de desarrollo: ${result.dev_code}` : '';
+      const devCodeMsg = !result?.email_sent && result?.dev_code
+        ? `\n\nNo se pudo enviar el correo real. Código de desarrollo: ${result.dev_code}`
+        : '';
 
       Alert.alert(
-        'Código generado',
-        `Generamos un código para verificar tu correo actual: ${currentEmail}.${devCodeMsg}`,
+        'Código enviado',
+        `Enviamos un código para verificar tu correo actual: ${currentEmail}.${devCodeMsg}`,
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
     } catch (error) {
@@ -119,7 +121,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
           <Text style={styles.cardTitle}>Verificación de seguridad</Text>
           <Text style={styles.cardText}>
             Para cambiar tu correo primero verificaremos que eres el titular de la cuenta.
-            Generaremos un código para tu correo actual:
+            Enviaremos un código a tu correo actual:
           </Text>
           <View style={styles.emailBadge}>
             <Text style={styles.emailBadgeText}>📧 {currentEmail}</Text>
@@ -139,7 +141,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
           <Text style={styles.cardTitle}>Ingresa el código</Text>
           <Text style={styles.cardText}>
-            Ingresa el código de 6 dígitos generado para{' '}
+            Ingresa el código de 6 dígitos enviado a{' '}
             <Text style={{ color: '#7c6fcd', fontWeight: '600' }}>{currentEmail}</Text>. Expira en 15 minutos.
           </Text>
           <View style={styles.digitRow}>
