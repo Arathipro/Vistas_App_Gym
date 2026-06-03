@@ -49,13 +49,13 @@ export default function RegisterScreen({ navigation }) {
       setCodigo(['', '', '', '', '', '']);
       setPaso(1);
 
-      const devCodeMsg = result?.dev_code
-        ? `\n\nCódigo de desarrollo: ${result.dev_code}`
+      const devCodeMsg = !result?.email_sent && result?.dev_code
+        ? `\n\nNo se pudo enviar el correo real. Código de desarrollo: ${result.dev_code}`
         : '';
 
       Alert.alert(
-        'Código generado',
-        `Generamos el código para ${emailLower}. Revisa el correo cuando se integre Nodemailer.${devCodeMsg}`
+        'Código enviado',
+        `Enviamos un código de verificación a ${emailLower}. Revisa tu bandeja de entrada o spam.${devCodeMsg}`
       );
     } catch (error) {
       Alert.alert('Error', error.message || 'No se pudo generar el código de verificación.');
@@ -172,7 +172,7 @@ export default function RegisterScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={{ fontSize: 40, textAlign: 'center', marginBottom: 8 }}>📧</Text>
           <Text style={styles.cardTitle}>Verifica tu correo</Text>
-          <Text style={styles.cardText}>Ingresa el código de 6 dígitos generado para <Text style={styles.mailText}>{email.trim().toLowerCase()}</Text>.</Text>
+          <Text style={styles.cardText}>Ingresa el código de 6 dígitos enviado a <Text style={styles.mailText}>{email.trim().toLowerCase()}</Text>.</Text>
           <View style={styles.digitRow}>
             {codigo.map((d, i) => (
               <TextInput
