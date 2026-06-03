@@ -2,6 +2,7 @@ import { query } from '../config/db.js';
 import { sendVerificationEmail } from '../services/email.service.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { signSessionToken, hashToken } from '../utils/token.js';
+import log from '../utils/logger.js';
 
 function generarCodigo() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -11,12 +12,12 @@ function addMinutes(minutes) {
   return new Date(Date.now() + minutes * 60 * 1000);
 }
 
-function shouldExposeDevCode() {
-  return process.env.NODE_ENV !== 'production';
+function shouldExposeDevCode(payload = {}) {
+  return process.env.NODE_ENV !== 'production' && payload.email_sent !== true;
 }
 
 function withDevCode(payload, code) {
-  if (!shouldExposeDevCode()) return payload;
+  if (!shouldExposeDevCode(payload)) return payload;
   return { ...payload, dev_code: code };
 }
 
@@ -27,7 +28,7 @@ function sanitizeUser(row) {
     id_usuario: row.id_usuario,
     nombre: row.nombre,
     email: row.email,
-    rol: row.nombre_rol,
+    rol: row.nombre_rol || row.rol,
     created_at: row.created_at,
   };
 }
@@ -72,7 +73,7 @@ async function sendCodeSafely({ to, code, tipo }) {
     const result = await sendVerificationEmail({ to, code, tipo });
     return result;
   } catch (error) {
-    console.error('Error enviando correo:', error.message);
+    log.error('Error enviando correo', error);
     return { ok: false, error: error.message };
   }
 }
@@ -86,9 +87,12 @@ export async function requestRegisterCode(req, res, next) {
     }
 
     const emailLower = email.trim().toLowerCase();
+    log.info('RF01 - Solicitud de registro', { nombre: nombre.trim(), email: emailLower });
+
     const exists = await query('SELECT id_usuario FROM usuarios WHERE lower(email) = lower($1)', [emailLower]);
 
     if (exists.rowCount > 0) {
+      log.warn('Registro rechazado: correo ya existente', { email: emailLower });
       return res.status(409).json({ ok: false, error: 'Este correo ya está registrado.' });
     }
 
@@ -105,7 +109,12 @@ export async function requestRegisterCode(req, res, next) {
     });
 
     const emailResult = await sendCodeSafely({ to: emailLower, code, tipo: 'registro' });
-    console.log('Código registro generado:', { email: emailLower, code, emailResult });
+    log.success('Código de registro generado y enviado', {
+      email: emailLower,
+      tipo: 'registro',
+      email_sent: emailResult.ok,
+      expira_at: expiresAt,
+    });
 
     return res.json(withDevCode({ ok: true, message: 'Código de verificación generado.', email_sent: emailResult.ok }, code));
   } catch (error) {
@@ -122,9 +131,12 @@ export async function confirmRegister(req, res, next) {
     }
 
     const emailLower = email.trim().toLowerCase();
+    log.info('RF01 - Confirmación de registro', { email: emailLower });
+
     const verification = await findValidCode({ email: emailLower, code, tipo: 'registro' });
 
     if (!verification.ok) {
+      log.warn('Confirmación de registro rechazada', { email: emailLower, motivo: verification.error });
       return res.status(400).json({ ok: false, error: verification.error });
     }
 
@@ -143,6 +155,7 @@ export async function confirmRegister(req, res, next) {
 
     await query('UPDATE codigos_verificacion SET usado = true WHERE id_codigo = $1', [codeRow.id_codigo]);
 
+    log.success('Usuario creado en PostgreSQL', log.safeUser(userResult.rows[0]));
     return res.status(201).json({ ok: true, user: userResult.rows[0] });
   } catch (error) {
     if (error.code === '23505') {
@@ -160,6 +173,8 @@ export async function requestPasswordResetCode(req, res, next) {
     }
 
     const emailLower = email.trim().toLowerCase();
+    log.info('RF05 - Solicitud de recuperación de contraseña', { email: emailLower });
+
     const userResult = await query(
       `SELECT id_usuario, email FROM usuarios
        WHERE lower(email) = lower($1)
@@ -168,6 +183,7 @@ export async function requestPasswordResetCode(req, res, next) {
     );
 
     if (userResult.rowCount === 0) {
+      log.warn('Recuperación solicitada para correo no registrado', { email: emailLower });
       return res.json({ ok: true, message: 'Si el correo está registrado, recibirás un código.' });
     }
 
@@ -184,7 +200,13 @@ export async function requestPasswordResetCode(req, res, next) {
     });
 
     const emailResult = await sendCodeSafely({ to: emailLower, code, tipo: 'reset_password' });
-    console.log('Código reset generado:', { email: emailLower, code, emailResult });
+    log.success('Código de recuperación generado y enviado', {
+      id_usuario: user.id_usuario,
+      email: emailLower,
+      tipo: 'reset_password',
+      email_sent: emailResult.ok,
+      expira_at: expiresAt,
+    });
 
     return res.json(withDevCode({ ok: true, message: 'Código de recuperación generado.', email_sent: emailResult.ok }, code));
   } catch (error) {
@@ -200,6 +222,8 @@ export async function confirmPasswordReset(req, res, next) {
     }
 
     const emailLower = email.trim().toLowerCase();
+    log.info('RF05 - Confirmación de nueva contraseña', { email: emailLower });
+
     const userResult = await query(
       `SELECT id_usuario FROM usuarios
        WHERE lower(email) = lower($1)
@@ -208,6 +232,7 @@ export async function confirmPasswordReset(req, res, next) {
     );
 
     if (userResult.rowCount === 0) {
+      log.warn('Cambio de contraseña rechazado: usuario no encontrado', { email: emailLower });
       return res.status(400).json({ ok: false, error: 'Código incorrecto.' });
     }
 
@@ -220,6 +245,7 @@ export async function confirmPasswordReset(req, res, next) {
     });
 
     if (!verification.ok) {
+      log.warn('Cambio de contraseña rechazado', { email: emailLower, motivo: verification.error });
       return res.status(400).json({ ok: false, error: verification.error });
     }
 
@@ -235,6 +261,11 @@ export async function confirmPasswordReset(req, res, next) {
 
     await query('UPDATE codigos_verificacion SET usado = true WHERE id_codigo = $1', [verification.codeRow.id_codigo]);
     await query('UPDATE sesiones SET revoked_at = NOW() WHERE id_usuario = $1 AND revoked_at IS NULL', [user.id_usuario]);
+
+    log.success('Contraseña actualizada y sesiones previas revocadas', {
+      id_usuario: user.id_usuario,
+      email: emailLower,
+    });
 
     return res.json({ ok: true, message: 'Contraseña actualizada correctamente.' });
   } catch (error) {
@@ -252,6 +283,8 @@ export async function requestEmailChangeCode(req, res, next) {
     }
 
     const user = userResult.rows[0];
+    log.info('RF07 - Solicitud de cambio de correo', { id_usuario: idUsuario, email_actual: user.email });
+
     const code = generarCodigo();
     const expiresAt = addMinutes(15);
 
@@ -264,7 +297,13 @@ export async function requestEmailChangeCode(req, res, next) {
     });
 
     const emailResult = await sendCodeSafely({ to: user.email, code, tipo: 'cambio_email' });
-    console.log('Código cambio email generado:', { email: user.email, code, emailResult });
+    log.success('Código de cambio de correo generado y enviado', {
+      id_usuario: idUsuario,
+      email: user.email,
+      tipo: 'cambio_email',
+      email_sent: emailResult.ok,
+      expira_at: expiresAt,
+    });
 
     return res.json(withDevCode({ ok: true, message: 'Código de cambio de correo generado.', email_sent: emailResult.ok }, code));
   } catch (error) {
@@ -288,6 +327,11 @@ export async function confirmEmailChange(req, res, next) {
 
     const user = userResult.rows[0];
     const emailLower = newEmail.trim().toLowerCase();
+    log.info('RF08 - Confirmación de cambio de correo', {
+      id_usuario: idUsuario,
+      email_actual: user.email,
+      email_nuevo: emailLower,
+    });
 
     if (emailLower === user.email.toLowerCase()) {
       return res.status(400).json({ ok: false, error: 'El nuevo correo no puede ser igual al actual.' });
@@ -299,6 +343,7 @@ export async function confirmEmailChange(req, res, next) {
     );
 
     if (exists.rowCount > 0) {
+      log.warn('Cambio de correo rechazado: correo ya registrado', { email_nuevo: emailLower });
       return res.status(409).json({ ok: false, error: 'Ese correo ya está registrado en otra cuenta.' });
     }
 
@@ -310,6 +355,7 @@ export async function confirmEmailChange(req, res, next) {
     });
 
     if (!verification.ok) {
+      log.warn('Cambio de correo rechazado', { id_usuario: idUsuario, motivo: verification.error });
       return res.status(400).json({ ok: false, error: verification.error });
     }
 
@@ -323,6 +369,12 @@ export async function confirmEmailChange(req, res, next) {
 
     await query('UPDATE codigos_verificacion SET usado = true WHERE id_codigo = $1', [verification.codeRow.id_codigo]);
     await query('UPDATE sesiones SET revoked_at = NOW() WHERE id_usuario = $1 AND revoked_at IS NULL', [idUsuario]);
+
+    log.success('Correo actualizado y sesiones previas revocadas', {
+      id_usuario: idUsuario,
+      email_anterior: user.email,
+      email_nuevo: emailLower,
+    });
 
     return res.json({ ok: true, message: 'Correo actualizado correctamente.' });
   } catch (error) {
@@ -342,6 +394,7 @@ export async function login(req, res, next) {
     }
 
     const emailLower = email.trim().toLowerCase();
+    log.info('RF03 - Intento de inicio de sesión', { email: emailLower });
 
     const userResult = await query(
       `SELECT u.*, r.nombre_rol
@@ -353,17 +406,20 @@ export async function login(req, res, next) {
     );
 
     if (userResult.rowCount === 0) {
+      log.warn('Login rechazado: usuario no encontrado o inactivo', { email: emailLower });
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas.' });
     }
 
     const user = userResult.rows[0];
 
     if (user.nombre_rol !== 'usuario_app') {
+      log.warn('Login rechazado: rol no permitido en app móvil', { email: emailLower, rol: user.nombre_rol });
       return res.status(403).json({ ok: false, error: 'Rol no permitido en app móvil.' });
     }
 
     const validPassword = await comparePassword(password, user.password_hash);
     if (!validPassword) {
+      log.warn('Login rechazado: contraseña incorrecta', { email: emailLower });
       return res.status(401).json({ ok: false, error: 'Credenciales incorrectas.' });
     }
 
@@ -378,6 +434,13 @@ export async function login(req, res, next) {
       [user.id_usuario, tokenHash, expiresAt]
     );
 
+    log.success('Login correcto y sesión creada', {
+      id_usuario: user.id_usuario,
+      email: user.email,
+      rol: user.nombre_rol,
+      expires_at: expiresAt,
+    });
+
     return res.json({ ok: true, token, user: sanitizeUser(user) });
   } catch (error) {
     next(error);
@@ -388,6 +451,18 @@ export async function saveProfile(req, res, next) {
   try {
     const idUsuario = req.user.id_usuario;
     const { nombre, edad, peso, altura, genero, objetivo, nivel, diasSemana } = req.body;
+
+    log.info('RF02/RF04 - Guardar perfil de usuario', {
+      id_usuario: idUsuario,
+      nombre,
+      edad,
+      peso,
+      altura,
+      genero,
+      objetivo,
+      nivel,
+      diasSemana,
+    });
 
     if (nombre?.trim()) {
       await query(
@@ -424,6 +499,7 @@ export async function saveProfile(req, res, next) {
       [idUsuario]
     );
 
+    log.success('Perfil guardado en PostgreSQL', result.rows[0]);
     return res.json({ ok: true, perfil: result.rows[0] });
   } catch (error) {
     next(error);
@@ -457,6 +533,7 @@ export async function logout(req, res, next) {
       [req.tokenHash]
     );
 
+    log.success('RF06 - Cierre de sesión correcto', { id_usuario: req.user.id_usuario });
     return res.json({ ok: true });
   } catch (error) {
     next(error);
