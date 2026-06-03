@@ -15,7 +15,9 @@ export async function query(text, params = []) {
   const result = await pool.query(text, params);
   const duration = Date.now() - start;
 
-  if (process.env.NODE_ENV !== 'production') {
+  // Para evidencia normal se usan los bloques visuales por RF en controllers.
+  // Activa DEBUG_SQL=true solo cuando necesites depurar consultas crudas.
+  if (process.env.DEBUG_SQL === 'true') {
     console.log('SQL ejecutado', { text, duration, rows: result.rowCount });
   }
 
@@ -23,6 +25,6 @@ export async function query(text, params = []) {
 }
 
 export async function testDBConnection() {
-  const result = await query('SELECT NOW() AS now');
-  console.log('PostgreSQL conectado:', result.rows[0].now);
+  const result = await pool.query('SELECT NOW() AS now');
+  console.log('✅ PostgreSQL conectado:', result.rows[0].now);
 }
