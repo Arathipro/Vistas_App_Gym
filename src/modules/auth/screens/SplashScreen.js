@@ -3,7 +3,7 @@
  * Pantalla de inicio de la app.
  *
  * Flujo actual:
- * 1. Inicializa SQLite local como respaldo temporal.
+ * 1. Revisa si hay token backend guardado.
  * 2. Si hay token backend válido y perfil completo → Home.
  * 3. Si hay token backend válido sin encuesta → Survey.
  * 4. Si no hay sesión backend → bienvenida.
@@ -12,7 +12,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { initDB } from '../db/database';
 import { getProfile, getSessionToken, isProfileComplete } from '../services/authApiService';
 import { useAppSession } from '../../../context/AppSessionContext';
 
@@ -23,8 +22,6 @@ export default function SplashScreen({ navigation }) {
   useEffect(() => {
     async function init() {
       try {
-        await initDB();
-
         const token = await getSessionToken();
         if (token) {
           setToken(token);
