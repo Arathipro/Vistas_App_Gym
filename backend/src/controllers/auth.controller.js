@@ -47,7 +47,9 @@ async function findValidCode({ email, code, tipo, idUsuario = null }) {
   if (idUsuario) params.push(idUsuario);
 
   const result = await query(
-    `SELECT * FROM codigos_verificacion
+    `SELECT *,
+            expira_at <= (NOW() AT TIME ZONE 'UTC') AS expirado
+     FROM codigos_verificacion
      WHERE lower(email_destino) = lower($1)
        AND codigo = $2
        AND tipo = $3
@@ -61,7 +63,12 @@ async function findValidCode({ email, code, tipo, idUsuario = null }) {
   if (result.rowCount === 0) return { ok: false, error: 'Código incorrecto.' };
 
   const codeRow = result.rows[0];
-  if (new Date(codeRow.expira_at) < new Date()) {
+  if (codeRow.expirado) {
+    log.warn('Código expirado rechazado', {
+      email: email.trim().toLowerCase(),
+      tipo,
+      expira_at: codeRow.expira_at,
+    });
     return { ok: false, error: 'Código expirado.' };
   }
 
@@ -520,7 +527,11 @@ export async function getProfile(req, res, next) {
       [idUsuario]
     );
 
-    return res.json({ ok: true, perfil: result.rows[0] || null });
+    if (result.rowCount === 0) {
+      return res.status(404).json({ ok: false, error: 'Perfil no encontrado.' });
+    }
+
+    return res.json({ ok: true, perfil: result.rows[0] });
   } catch (error) {
     next(error);
   }
@@ -528,13 +539,8 @@ export async function getProfile(req, res, next) {
 
 export async function logout(req, res, next) {
   try {
-    await query(
-      'UPDATE sesiones SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL',
-      [req.tokenHash]
-    );
-
-    log.success('RF06 - Cierre de sesión correcto', { id_usuario: req.user.id_usuario });
-    return res.json({ ok: true });
+    await query('UPDATE sesiones SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL', [req.tokenHash]);
+    return res.json({ ok: true, message: 'Sesión cerrada correctamente.' });
   } catch (error) {
     next(error);
   }
