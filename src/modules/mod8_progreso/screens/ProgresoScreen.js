@@ -1,724 +1,140 @@
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
 
 const COLORS = {
-  bg: '#1a1a22',
-  surface: '#24242e',
-  surface2: '#2a2a35',
-  surface3: '#343440',
-  border: '#3a3a46',
-  text: '#f5f5f7',
-  text2: '#c7c7d1',
-  muted: '#8b8b98',
-  accent: '#7c6fcd',
-  accent2: '#5eead4',
-  accent3: '#ffa032',
-  success: '#34d399',
-  danger: '#f87171',
+  bg: '#1a1a22', surface: '#24242e', surface2: '#2a2a35', surface3: '#343440', border: '#3a3a46',
+  text: '#f5f5f7', text2: '#c7c7d1', muted: '#8b8b98', accent: '#7c6fcd', accent2: '#5eead4',
+  accent3: '#ffa032', success: '#34d399', danger: '#f87171',
 };
 
-const PERIODOS = [
-  { id: '1s', label: '1s' },
-  { id: '1m', label: '1m' },
-  { id: '3m', label: '3m' },
-  { id: '6m', label: '6m' },
-  { id: '1a', label: '1a' },
-  { id: 'todo', label: 'Todo' },
-];
+const PERIODOS = [{ id: '1s', label: '1s' }, { id: '1m', label: '1m' }, { id: '3m', label: '3m' }, { id: '6m', label: '6m' }, { id: '1a', label: '1a' }, { id: 'todo', label: 'Todo' }];
+const GRUPOS = ['Todos', 'Pecho', 'Espalda', 'Pierna', 'Brazos', 'Hombros', 'Abdomen'];
 
 const PROGRESO_EJS_DEMO = {
-  'Press de banca': [
-    { fecha: '12 Ene', kg: 50, series: 3, reps: 8, tiempo: '35s', nota: 'Técnica estable.' },
-    { fecha: '25 Ene', kg: 55, series: 4, reps: 8, tiempo: '38s', nota: '' },
-    { fecha: '10 Feb', kg: 60, series: 4, reps: 9, tiempo: '40s', nota: 'Mejor control.' },
-    { fecha: '24 Feb', kg: 65, series: 4, reps: 8, tiempo: '42s', nota: '' },
-    { fecha: '10 Mar', kg: 70, series: 4, reps: 8, tiempo: '43s', nota: 'Subida limpia.' },
-    { fecha: '24 Mar', kg: 75, series: 4, reps: 7, tiempo: '45s', nota: 'Pesado pero controlado.' },
-  ],
-  Sentadilla: [
-    { fecha: '12 Ene', kg: 70, series: 4, reps: 10, tiempo: '44s', nota: '' },
-    { fecha: '25 Ene', kg: 75, series: 4, reps: 10, tiempo: '46s', nota: '' },
-    { fecha: '10 Feb', kg: 82, series: 4, reps: 8, tiempo: '47s', nota: 'Profundidad mejor.' },
-    { fecha: '24 Feb', kg: 90, series: 4, reps: 8, tiempo: '50s', nota: '' },
-    { fecha: '10 Mar', kg: 95, series: 4, reps: 7, tiempo: '52s', nota: '' },
-    { fecha: '24 Mar', kg: 100, series: 4, reps: 6, tiempo: '54s', nota: 'Buena estabilidad.' },
-  ],
-  'Peso muerto': [
-    { fecha: '12 Ene', kg: 85, series: 3, reps: 5, tiempo: '37s', nota: '' },
-    { fecha: '25 Ene', kg: 92, series: 3, reps: 5, tiempo: '39s', nota: '' },
-    { fecha: '10 Feb', kg: 100, series: 3, reps: 5, tiempo: '41s', nota: 'Agarre mejor.' },
-    { fecha: '24 Feb', kg: 108, series: 3, reps: 4, tiempo: '42s', nota: '' },
-    { fecha: '10 Mar', kg: 112, series: 3, reps: 4, tiempo: '44s', nota: '' },
-    { fecha: '24 Mar', kg: 115, series: 3, reps: 3, tiempo: '46s', nota: 'RPE alto.' },
-  ],
-};
-
-const UNIDAD_EJS_DEMO = {
-  'Press de banca': 'kg',
-  Sentadilla: 'kg',
-  'Peso muerto': 'kg',
+  'Press de banca': { grupo: 'Pecho', icon: '🏋️', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 50 }, { fecha: '25 Ene', kg: 55 }, { fecha: '10 Feb', kg: 60 }, { fecha: '24 Feb', kg: 65 }, { fecha: '10 Mar', kg: 70 }, { fecha: '24 Mar', kg: 75 }] },
+  'Aperturas mancuernas': { grupo: 'Pecho', icon: '🤸', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 12 }, { fecha: '25 Ene', kg: 14 }, { fecha: '10 Feb', kg: 16 }, { fecha: '24 Feb', kg: 18 }, { fecha: '10 Mar', kg: 18 }, { fecha: '24 Mar', kg: 20 }] },
+  'Jalón al pecho': { grupo: 'Espalda', icon: '🔝', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 45 }, { fecha: '25 Ene', kg: 50 }, { fecha: '10 Feb', kg: 55 }, { fecha: '24 Feb', kg: 60 }, { fecha: '10 Mar', kg: 60 }, { fecha: '24 Mar', kg: 65 }] },
+  'Peso muerto': { grupo: 'Espalda', icon: '💪', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 85 }, { fecha: '25 Ene', kg: 92 }, { fecha: '10 Feb', kg: 100 }, { fecha: '24 Feb', kg: 108 }, { fecha: '10 Mar', kg: 112 }, { fecha: '24 Mar', kg: 115 }] },
+  Sentadilla: { grupo: 'Pierna', icon: '🦵', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 70 }, { fecha: '25 Ene', kg: 75 }, { fecha: '10 Feb', kg: 82 }, { fecha: '24 Feb', kg: 90 }, { fecha: '10 Mar', kg: 95 }, { fecha: '24 Mar', kg: 100 }] },
+  'Prensa de pierna': { grupo: 'Pierna', icon: '🦵', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 120 }, { fecha: '25 Ene', kg: 130 }, { fecha: '10 Feb', kg: 140 }, { fecha: '24 Feb', kg: 150 }, { fecha: '10 Mar', kg: 160 }, { fecha: '24 Mar', kg: 170 }] },
+  'Curl bíceps': { grupo: 'Brazos', icon: '💪', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 12 }, { fecha: '25 Ene', kg: 14 }, { fecha: '10 Feb', kg: 16 }, { fecha: '24 Feb', kg: 18 }, { fecha: '10 Mar', kg: 18 }, { fecha: '24 Mar', kg: 20 }] },
+  'Extensión tríceps': { grupo: 'Brazos', icon: '⬇️', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 25 }, { fecha: '25 Ene', kg: 28 }, { fecha: '10 Feb', kg: 30 }, { fecha: '24 Feb', kg: 32 }, { fecha: '10 Mar', kg: 34 }, { fecha: '24 Mar', kg: 36 }] },
+  'Press militar': { grupo: 'Hombros', icon: '🎯', unidad: 'kg', datos: [{ fecha: '12 Ene', kg: 28 }, { fecha: '25 Ene', kg: 30 }, { fecha: '10 Feb', kg: 32 }, { fecha: '24 Feb', kg: 35 }, { fecha: '10 Mar', kg: 35 }, { fecha: '24 Mar', kg: 38 }] },
+  Plancha: { grupo: 'Abdomen', icon: '🧱', unidad: 's', datos: [{ fecha: '12 Ene', kg: 45 }, { fecha: '25 Ene', kg: 50 }, { fecha: '10 Feb', kg: 55 }, { fecha: '24 Feb', kg: 65 }, { fecha: '10 Mar', kg: 70 }, { fecha: '24 Mar', kg: 80 }] },
 };
 
 const SESIONES_DEMO = [
-  {
-    id: 1,
-    fecha: 'Mar 24, 2026',
-    hora: '18:20',
-    duracion: '52m',
-    volumen: '3,480 kg',
-    tieneNota: true,
-    nota: 'Me sentí fuerte, pero al final bajó la velocidad de la barra.',
-    ejercicios: [
-      {
-        icon: '🏋️', nombre: 'Press de banca', tieneNota: true, nota: 'Subida controlada, cuidar codos.',
-        series: [
-          { s: 1, kg: 70, r: 8, t: '42s', nota: '' },
-          { s: 2, kg: 75, r: 7, t: '45s', nota: 'Pesado.' },
-          { s: 3, kg: 72, r: 8, t: '44s', nota: '' },
-        ],
-      },
-      {
-        icon: '🎯', nombre: 'Press militar', tieneNota: false, nota: '',
-        series: [
-          { s: 1, kg: 35, r: 10, t: '35s', nota: '' },
-          { s: 2, kg: 35, r: 9, t: '36s', nota: '' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 2,
-    fecha: 'Mar 18, 2026',
-    hora: '17:40',
-    duracion: '58m',
-    volumen: '4,120 kg',
-    tieneNota: true,
-    nota: 'Sesión de pierna sólida, más descanso en sentadilla.',
-    ejercicios: [
-      {
-        icon: '🦵', nombre: 'Sentadilla', tieneNota: true, nota: 'Buena profundidad.',
-        series: [
-          { s: 1, kg: 90, r: 8, t: '48s', nota: '' },
-          { s: 2, kg: 95, r: 7, t: '52s', nota: 'Costó la última.' },
-          { s: 3, kg: 100, r: 6, t: '54s', nota: '' },
-        ],
-      },
-      {
-        icon: '💪', nombre: 'Peso muerto', tieneNota: false, nota: '',
-        series: [
-          { s: 1, kg: 108, r: 5, t: '42s', nota: '' },
-          { s: 2, kg: 112, r: 4, t: '44s', nota: '' },
-        ],
-      },
-    ],
-  },
-  {
-    id: 3,
-    fecha: 'Mar 10, 2026',
-    hora: '19:05',
-    duracion: '49m',
-    volumen: '3,020 kg',
-    tieneNota: false,
-    nota: '',
-    ejercicios: [
-      {
-        icon: '🏋️', nombre: 'Press de banca', tieneNota: false, nota: '',
-        series: [
-          { s: 1, kg: 65, r: 9, t: '40s', nota: '' },
-          { s: 2, kg: 70, r: 8, t: '43s', nota: '' },
-        ],
-      },
-      {
-        icon: '🔝', nombre: 'Jalón al pecho', tieneNota: false, nota: '',
-        series: [
-          { s: 1, kg: 55, r: 12, t: '36s', nota: '' },
-          { s: 2, kg: 60, r: 10, t: '38s', nota: '' },
-        ],
-      },
-    ],
-  },
+  { id: 1, fecha: 'Mar 24, 2026', hora: '18:20', duracion: '52m', volumen: '3,480 kg', nota: 'Me sentí fuerte.', ejercicios: [
+    { icon: '🏋️', nombre: 'Press de banca', series: [{ s: 1, kg: 70, reps: 8, t: '42s' }, { s: 2, kg: 75, reps: 7, t: '45s' }, { s: 3, kg: 72, reps: 8, t: '44s' }], nota: 'Cuidar codos.' },
+    { icon: '🎯', nombre: 'Press militar', series: [{ s: 1, kg: 35, reps: 10, t: '35s' }, { s: 2, kg: 35, reps: 9, t: '36s' }], nota: '' },
+  ] },
+  { id: 2, fecha: 'Mar 18, 2026', hora: '17:40', duracion: '58m', volumen: '4,120 kg', nota: 'Pierna sólida.', ejercicios: [
+    { icon: '🦵', nombre: 'Sentadilla', series: [{ s: 1, kg: 90, reps: 8, t: '48s' }, { s: 2, kg: 95, reps: 7, t: '52s' }, { s: 3, kg: 100, reps: 6, t: '54s' }], nota: 'Buena profundidad.' },
+    { icon: '💪', nombre: 'Peso muerto', series: [{ s: 1, kg: 108, reps: 5, t: '42s' }, { s: 2, kg: 112, reps: 4, t: '44s' }], nota: '' },
+  ] },
+  { id: 3, fecha: 'Mar 10, 2026', hora: '19:05', duracion: '49m', volumen: '3,020 kg', nota: '', ejercicios: [
+    { icon: '🏋️', nombre: 'Press de banca', series: [{ s: 1, kg: 65, reps: 9, t: '40s' }, { s: 2, kg: 70, reps: 8, t: '43s' }], nota: '' },
+    { icon: '🔝', nombre: 'Jalón al pecho', series: [{ s: 1, kg: 55, reps: 12, t: '36s' }, { s: 2, kg: 60, reps: 10, t: '38s' }], nota: '' },
+  ] },
+  { id: 4, fecha: 'Feb 28, 2026', hora: '18:10', duracion: '45m', volumen: '2,880 kg', nota: 'Corto por falta de tiempo.', ejercicios: [
+    { icon: '🎯', nombre: 'Press militar', series: [{ s: 1, kg: 30, reps: 11, t: '34s' }, { s: 2, kg: 32, reps: 10, t: '36s' }], nota: 'Hombro cansado.' },
+  ] },
 ];
 
-function AppStatusBar() {
-  return (
-    <View style={styles.statusBar}>
-      <Text style={styles.statusTime}>9:41</Text>
-      <View style={styles.statusIcons}>
-        <Text style={styles.statusText}>▲</Text>
-        <Text style={styles.statusText}>WiFi</Text>
-        <Text style={styles.statusText}>🔋</Text>
-      </View>
-    </View>
-  );
-}
+function AppStatusBar() { return <View style={styles.statusBar}><Text style={styles.statusTime}>9:41</Text><View style={styles.statusIcons}><Text style={styles.statusText}>▲</Text><Text style={styles.statusText}>WiFi</Text><Text style={styles.statusText}>🔋</Text></View></View>; }
+function Badge({ children }) { return <View style={styles.badge}><Text style={styles.badgeText}>{children}</Text></View>; }
+function Header({ navigation }) { return <><AppStatusBar /><View style={styles.header}><TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Home')}><Text style={styles.backText}>←</Text></TouchableOpacity><Text style={styles.screenTitle}>Progreso</Text><View style={{ width: 34 }} /></View></>; }
+function TabSelector({ active, onChange }) { return <View style={styles.tabsShell}>{['Resumen', 'Por ejercicio', 'Consistencia'].map(label => { const id = label === 'Por ejercicio' ? 'ejercicio' : label.toLowerCase(); return <TouchableOpacity key={id} onPress={() => onChange(id)} style={[styles.tabBtn, active === id && styles.tabActive]}><Text style={[styles.tabText, active === id && styles.tabTextActive]}>{label}</Text></TouchableOpacity>; })}</View>; }
+function PeriodSelector({ value, onChange }) { return <View style={styles.tagsRow}>{PERIODOS.map(p => <TouchableOpacity key={p.id} onPress={() => onChange(p.id)} style={[styles.tag, value === p.id && styles.tagActive]}><Text style={[styles.tagText, value === p.id && styles.tagTextActive]}>{p.label}</Text></TouchableOpacity>)}</View>; }
 
-function Badge({ children, variant = 'orange' }) {
-  const color = variant === 'teal' ? COLORS.accent2 : variant === 'purple' ? COLORS.accent : COLORS.accent3;
-  return (
-    <View style={[styles.badge, { borderColor: `${color}55`, backgroundColor: `${color}18` }]}>
-      <Text style={[styles.badgeText, { color }]}>{children}</Text>
-    </View>
-  );
+function BarChart({ values, height = 120, color = COLORS.accent }) {
+  const max = Math.max(...values, 1); const min = Math.min(...values, max);
+  return <View style={[styles.chartPlaceholder, { height }]}><View style={styles.chartBars}>{values.map((v, i) => { const pct = max === min ? 60 : 25 + ((v - min) / (max - min)) * 70; return <View key={`${v}-${i}`} style={[styles.chartBar, { height: `${pct}%`, backgroundColor: i === values.length - 1 ? color : COLORS.surface3 }]} />; })}</View></View>;
 }
-
-function Header({ navigation }) {
-  return (
-    <>
-      <AppStatusBar />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Home')}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.screenTitle}>Progreso</Text>
-        <View style={{ width: 34 }} />
-      </View>
-    </>
-  );
-}
-
-function TabSelector({ active, onChange }) {
-  const tabs = [
-    { id: 'resumen', label: 'Resumen' },
-    { id: 'ejercicio', label: 'Por ejercicio' },
-    { id: 'consistencia', label: 'Consistencia' },
-  ];
-  return (
-    <View style={styles.tabsShell}>
-      {tabs.map(t => (
-        <TouchableOpacity key={t.id} onPress={() => onChange(t.id)} style={[styles.tabBtn, active === t.id && styles.tabActive]}>
-          <Text style={[styles.tabText, active === t.id && styles.tabTextActive]}>{t.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
-function PeriodSelector({ value, onChange }) {
-  return (
-    <View style={styles.tagsRow}>
-      {PERIODOS.map(p => (
-        <TouchableOpacity key={p.id} onPress={() => onChange(p.id)} style={[styles.tag, value === p.id && styles.tagActive]}>
-          <Text style={[styles.tagText, value === p.id && styles.tagTextActive]}>{p.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
-function BarChart({ values, highlightLast = true, height = 110, color = COLORS.accent }) {
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, max);
-  return (
-    <View style={[styles.chartPlaceholder, { height }]}> 
-      <View style={styles.chartBars}>
-        {values.map((v, i) => {
-          const pct = max === min ? 60 : 25 + ((v - min) / (max - min)) * 70;
-          const active = highlightLast && i === values.length - 1;
-          return (
-            <View
-              key={`${v}-${i}`}
-              style={[
-                styles.chartBar,
-                { height: `${pct}%`, backgroundColor: active ? color : COLORS.surface3 },
-              ]}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-function KpiCard({ icon, value, label, color }) {
-  return (
-    <View style={styles.kpiCard}>
-      <Text style={styles.kpiIcon}>{icon}</Text>
-      <View>
-        <Text style={[styles.kpiValue, { color }]}>{value}</Text>
-        <Text style={styles.kpiLabel}>{label}</Text>
-      </View>
-    </View>
-  );
-}
+function KpiCard({ icon, value, label, color }) { return <View style={styles.kpiCard}><Text style={styles.kpiIcon}>{icon}</Text><View><Text style={[styles.kpiValue, { color }]}>{value}</Text><Text style={styles.kpiLabel}>{label}</Text></View></View>; }
 
 function BodyRadarCard({ periodo, setPeriodo }) {
   const medidas = [
-    { label: 'Cintura', base: 85, actual: periodo === '1m' ? 83 : periodo === '6m' ? 78 : 81, betterDown: true },
-    { label: 'Brazos', base: 35, actual: periodo === '1m' ? 36 : periodo === '6m' ? 38 : 37 },
-    { label: 'Pecho', base: 95, actual: periodo === '1m' ? 94.5 : periodo === '6m' ? 93 : 94, betterDown: true },
-    { label: 'Cadera', base: 98, actual: periodo === '1m' ? 96 : periodo === '6m' ? 93 : 95, betterDown: true },
-    { label: 'Muslos', base: 58, actual: periodo === '1m' ? 57 : periodo === '6m' ? 55 : 56, betterDown: true },
-    { label: 'Piernas', base: 42, actual: periodo === '1m' ? 43 : periodo === '6m' ? 45 : 44 },
+    { label: 'Cintura', base: 85, actual: periodo === '6m' ? 78 : 81, diff: -4, good: true },
+    { label: 'Pecho', base: 95, actual: periodo === '6m' ? 99 : 98, diff: +3, good: true },
+    { label: 'Brazo', base: 35, actual: periodo === '6m' ? 38 : 37, diff: +2, good: true },
+    { label: 'Cadera', base: 98, actual: periodo === '6m' ? 94 : 95, diff: -3, good: true },
+    { label: 'Muslo', base: 54, actual: periodo === '6m' ? 56 : 55, diff: +1, good: true },
+    { label: 'Pantorrilla', base: 36, actual: periodo === '6m' ? 38 : 37, diff: +1, good: true },
   ];
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Medidas corporales</Text>
-      <View style={styles.legendRow}>
-        <View style={styles.legendItem}><View style={[styles.legendLine, { backgroundColor: `${COLORS.accent}66` }]} /><Text style={styles.legendText}>Base</Text></View>
-        <View style={styles.legendItem}><View style={[styles.legendLine, { backgroundColor: COLORS.accent }]} /><Text style={styles.legendText}>Actual</Text></View>
-      </View>
-      <View style={styles.radarBox}>
-        {medidas.map((m, i) => {
-          const min = m.betterDown ? 60 : 25;
-          const max = m.betterDown ? 100 : 50;
-          const basePct = Math.max(18, Math.min(100, ((m.base - min) / (max - min)) * 100));
-          const actPct = Math.max(18, Math.min(100, ((m.actual - min) / (max - min)) * 100));
-          const diff = m.actual - m.base;
-          const good = m.betterDown ? diff < 0 : diff > 0;
-          return (
-            <View key={m.label} style={styles.measureRow}>
-              <View style={{ width: 64 }}>
-                <Text style={styles.measureLabel}>{m.label}</Text>
-                <Text style={[styles.measureDiff, { color: diff === 0 ? COLORS.muted : good ? COLORS.success : COLORS.danger }]}>
-                  {diff > 0 ? '+' : ''}{diff.toFixed(diff % 1 ? 1 : 0)} cm
-                </Text>
-              </View>
-              <View style={styles.measureTrack}>
-                <View style={[styles.measureBase, { width: `${basePct}%` }]} />
-                <View style={[styles.measureCurrent, { width: `${actPct}%` }]} />
-              </View>
-              <Text style={styles.measureValue}>{m.actual}</Text>
-            </View>
-          );
-        })}
-      </View>
-      <PeriodSelector value={periodo} onChange={setPeriodo} />
+  return <View style={styles.card}>
+    <View style={styles.rowBetween}><View><Text style={styles.cardTitle}>Medidas corporales</Text><Text style={styles.cardSub}>Vista tipo hexágono + detalle numérico</Text></View><Badge>RF51</Badge></View>
+    <View style={styles.hexBox}>
+      <View style={styles.hexagonOuter}><View style={styles.hexagonInner}><Text style={styles.hexCenter}>Actual</Text><Text style={styles.hexPercent}>+ Progreso</Text></View></View>
+      <View style={styles.hexLabels}>{medidas.map((m, i) => <View key={m.label} style={[styles.hexLabel, styles[`hexPos${i}`]]}><Text style={styles.hexLabelText}>{m.label}</Text><Text style={[styles.hexLabelValue, { color: m.good ? COLORS.success : COLORS.danger }]}>{m.diff > 0 ? '+' : ''}{m.diff}cm</Text></View>)}</View>
     </View>
-  );
+    <View style={styles.measureGrid}>{medidas.map(m => <View key={m.label} style={styles.measureCard}><Text style={styles.measureLabel}>{m.label}</Text><Text style={styles.measureValue}>{m.actual} cm</Text><Text style={[styles.measureDiff, { color: m.good ? COLORS.success : COLORS.danger }]}>{m.diff > 0 ? '+' : ''}{m.diff} cm vs base</Text></View>)}</View>
+    <PeriodSelector value={periodo} onChange={setPeriodo} />
+  </View>;
 }
 
-function FilaComparativa({ d, numero, diff, unidad }) {
-  return (
-    <View style={styles.compareRow}>
-      <View style={styles.setNum}><Text style={styles.setNumText}>{numero}</Text></View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.compareDate}>{d.fecha}</Text>
-        <Text style={styles.compareSub}>{d.series} series · {d.reps} reps · prom. {d.tiempo}</Text>
-        {d.nota ? <Text style={styles.noteText}>📝 “{d.nota}”</Text> : null}
-      </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={styles.compareKg}>{d.kg}{unidad}</Text>
-        {diff !== 0 ? <Text style={[styles.compareDiff, { color: diff > 0 ? COLORS.success : COLORS.danger }]}>{diff > 0 ? '+' : ''}{diff}{unidad}</Text> : null}
-      </View>
-    </View>
-  );
+function SearchSelector({ label, sesiones, selected, onSelect }) {
+  const [query, setQuery] = useState('');
+  const list = sesiones.filter(s => `${s.fecha} ${s.hora} ${s.ejercicios.map(e => e.nombre).join(' ')}`.toLowerCase().includes(query.toLowerCase())).slice(0, 4);
+  return <View style={{ flex: 1 }}><Text style={styles.tinyLabel}>{label}</Text><TextInput style={styles.searchInput} placeholder="Buscar fecha..." placeholderTextColor={COLORS.muted} value={query} onChangeText={setQuery} />{list.map(s => <TouchableOpacity key={s.id} onPress={() => onSelect(s.id)} style={[styles.dateChip, selected === s.id && styles.dateChipActive]}><Text style={[styles.dateChipText, selected === s.id && styles.dateChipTextActive]}>{s.fecha.split(',')[0]} · {s.hora}</Text></TouchableOpacity>)}</View>;
 }
-
 function ComparadorFechas({ sesiones }) {
-  const [a, setA] = useState(0);
-  const [b, setB] = useState(1);
-  const sesA = sesiones[a];
-  const sesB = sesiones[b];
+  const [a, setA] = useState(sesiones[0].id); const [b, setB] = useState(sesiones[1].id);
+  const sesA = sesiones.find(s => s.id === a) || sesiones[0]; const sesB = sesiones.find(s => s.id === b) || sesiones[1];
   const comunes = sesA.ejercicios.filter(ea => sesB.ejercicios.find(eb => eb.nombre === ea.nombre));
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Comparar fechas</Text>
-      <Text style={styles.cardSub}>RF55 · selecciona dos sesiones</Text>
-      <View style={styles.selectGrid}>
-        {[0, 1].map(side => (
-          <View key={side} style={{ flex: 1 }}>
-            <Text style={styles.tinyLabel}>{side === 0 ? 'Fecha A' : 'Fecha B'}</Text>
-            {sesiones.map((s, i) => (
-              <TouchableOpacity key={s.id} onPress={() => side === 0 ? setA(i) : setB(i)} style={[styles.dateChip, (side === 0 ? a : b) === i && styles.dateChipActive]}>
-                <Text style={[styles.dateChipText, (side === 0 ? a : b) === i && styles.dateChipTextActive]}>{s.fecha.split(',')[0]}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </View>
-      <View style={styles.divider} />
-      {comunes.length === 0 ? (
-        <Text style={styles.emptyText}>Sin ejercicios en común entre estas sesiones</Text>
-      ) : comunes.map((ea, i) => {
-        const eb = sesB.ejercicios.find(e => e.nombre === ea.nombre);
-        const kgA = ea.series[0].kg;
-        const kgB = eb.series[0].kg;
-        const diff = kgB - kgA;
-        return (
-          <View key={ea.nombre} style={styles.commonRow}>
-            <Text style={styles.commonName}>{ea.icon} {ea.nombre}</Text>
-            <Text style={styles.commonValue}>{ea.series.length}s × {kgA}kg</Text>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.commonValue, { color: COLORS.accent2 }]}>{eb.series.length}s × {kgB}kg</Text>
-              {diff !== 0 ? <Text style={[styles.compareDiff, { color: diff > 0 ? COLORS.success : COLORS.danger }]}>{diff > 0 ? '+' : ''}{diff} kg</Text> : null}
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
+  return <View style={styles.card}><Text style={styles.cardTitle}>Comparar fechas</Text><Text style={styles.cardSub}>RF55 · busca y selecciona dos entrenamientos</Text><View style={styles.selectGrid}><SearchSelector label="Fecha A" sesiones={sesiones} selected={a} onSelect={setA} /><SearchSelector label="Fecha B" sesiones={sesiones} selected={b} onSelect={setB} /></View><View style={styles.divider} />{comunes.length === 0 ? <Text style={styles.emptyText}>Sin ejercicios en común entre estas sesiones</Text> : comunes.map(ea => { const eb = sesB.ejercicios.find(e => e.nombre === ea.nombre); const kgA = ea.series[0].kg; const kgB = eb.series[0].kg; const diff = kgB - kgA; return <View key={ea.nombre} style={styles.commonRow}><Text style={styles.commonName}>{ea.icon} {ea.nombre}</Text><Text style={styles.commonValue}>{kgA}kg</Text><View style={{ alignItems: 'flex-end' }}><Text style={[styles.commonValue, { color: COLORS.accent2 }]}>{kgB}kg</Text><Text style={[styles.compareDiff, { color: diff >= 0 ? COLORS.success : COLORS.danger }]}>{diff >= 0 ? '+' : ''}{diff}kg</Text></View></View>; })}</View>;
 }
+
+function ExportButton({ section, onPress }) { return <TouchableOpacity style={styles.primaryBtn} onPress={onPress}><Text style={styles.primaryText}>📤 Exportar {section}</Text></TouchableOpacity>; }
 
 function ResumenTab({ periodoRes, setPeriodoRes, navigation, onExport }) {
-  const semanas = [3, 2, 3, 3, 1, 3, 3, 2, 3];
-  const objetivo = 3;
-  const rachaActual = 14;
-  const adherencia = Math.round((semanas.reduce((s, w) => s + w, 0) / (semanas.length * objetivo)) * 100);
-
-  return (
-    <>
-      <View style={styles.kpiGrid}>
-        <KpiCard icon="🔥" value={`${rachaActual} días`} label="Racha actual" color={COLORS.accent3} />
-        <KpiCard icon="📊" value={`${adherencia}%`} label="Adherencia" color={COLORS.accent} />
-        <KpiCard icon="🏋️" value="24" label="Sesiones totales" color={COLORS.success} />
-        <KpiCard icon="⬆️" value="18,420 kg" label="Volumen total" color={COLORS.accent2} />
-      </View>
-
-      <BodyRadarCard periodo={periodoRes} setPeriodo={setPeriodoRes} />
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Entrenamientos recientes</Text>
-        {SESIONES_DEMO.slice(0, 4).map(s => (
-          <TouchableOpacity key={s.id} style={styles.recentRow} onPress={() => navigation.navigate('HistorialSesiones')}>
-            <View style={styles.dateBox}>
-              <Text style={styles.dateMonth}>{s.fecha.split(' ')[0]}</Text>
-              <Text style={styles.dateDay}>{s.fecha.split(' ')[1].replace(',', '')}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.recentTitle}>{s.hora} · {s.duracion}</Text>
-              <Text style={styles.recentSub}>{s.ejercicios.length} ejercicios · {s.volumen}</Text>
-            </View>
-            {s.tieneNota ? <Text style={styles.noteBadge}>📝</Text> : null}
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity style={styles.outlineBtn} onPress={() => navigation.navigate('HistorialSesiones')}>
-          <Text style={styles.outlineText}>Ver historial completo →</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ComparadorFechas sesiones={SESIONES_DEMO} />
-
-      <TouchableOpacity style={styles.primaryBtn} onPress={onExport}>
-        <Text style={styles.primaryText}>📤 Exportar datos de progreso</Text>
-      </TouchableOpacity>
-    </>
-  );
+  const adherencia = 85;
+  return <><View style={styles.kpiGrid}><KpiCard icon="🔥" value="14 días" label="Racha actual" color={COLORS.accent3} /><KpiCard icon="📊" value={`${adherencia}%`} label="Adherencia semanal" color={COLORS.accent} /><KpiCard icon="🏋️" value="24" label="Sesiones totales" color={COLORS.success} /><KpiCard icon="⬆️" value="18,420 kg" label="Volumen total" color={COLORS.accent2} /></View><BodyRadarCard periodo={periodoRes} setPeriodo={setPeriodoRes} /><View style={styles.card}><Text style={styles.cardTitle}>Entrenamientos recientes</Text>{SESIONES_DEMO.slice(0, 4).map(s => <TouchableOpacity key={s.id} style={styles.recentRow} onPress={() => navigation.navigate('HistorialSesiones')}><View style={styles.dateBox}><Text style={styles.dateMonth}>{s.fecha.split(' ')[0]}</Text><Text style={styles.dateDay}>{s.fecha.split(' ')[1].replace(',', '')}</Text></View><View style={{ flex: 1 }}><Text style={styles.recentTitle}>{s.hora} · {s.duracion}</Text><Text style={styles.recentSub}>{s.ejercicios.length} ejercicios · {s.volumen}</Text></View>{s.nota ? <Text style={styles.noteBadge}>📝</Text> : null}<Text style={styles.chevron}>›</Text></TouchableOpacity>)}<TouchableOpacity style={styles.outlineBtn} onPress={() => navigation.navigate('HistorialSesiones')}><Text style={styles.outlineText}>Ver historial completo →</Text></TouchableOpacity></View><ComparadorFechas sesiones={SESIONES_DEMO} /><ExportButton section="resumen completo" onPress={onExport} /></>;
 }
 
-function EjercicioTab({ ejSelec, setEjSelec, grupoFiltro, setGrupoFiltro, periodoEj, setPeriodoEj }) {
-  const nombres = Object.keys(PROGRESO_EJS_DEMO).filter(nombre => grupoFiltro === 'Todos' || nombre.toLowerCase().includes(grupoFiltro.toLowerCase()));
-  const todos = PROGRESO_EJS_DEMO[ejSelec] || [];
-  const sesionesMostrar = { '1s': 2, '1m': 3, '3m': 5, '6m': 6, '1a': 6 };
-  const n = sesionesMostrar[periodoEj] || todos.length;
-  const datos = todos.length <= n ? todos : todos.slice(-n);
-  const unidad = UNIDAD_EJS_DEMO[ejSelec] || 'kg';
-  const valores = datos.map(d => d.kg);
-  const maxKg = Math.max(...valores, 0);
-  const minKg = Math.min(...valores, 0);
-  const ganancia = datos.length > 1 ? datos[datos.length - 1].kg - datos[0].kg : 0;
-
-  return (
-    <>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Ejercicio seleccionado</Text>
-        <View style={styles.tagsRow}>
-          {['Todos', 'Press', 'Sentadilla', 'Peso'].map(g => (
-            <TouchableOpacity key={g} onPress={() => setGrupoFiltro(g)} style={[styles.tag, grupoFiltro === g && styles.tagActive]}>
-              <Text style={[styles.tagText, grupoFiltro === g && styles.tagTextActive]}>{g}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {nombres.map(nom => (
-          <TouchableOpacity key={nom} onPress={() => setEjSelec(nom)} style={[styles.exercisePick, ejSelec === nom && styles.exercisePickActive]}>
-            <Text style={styles.exerciseIcon}>{nom === 'Sentadilla' ? '🦵' : nom === 'Peso muerto' ? '💪' : '🏋️'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.exerciseName}>{nom}</Text>
-              <Text style={styles.exerciseSub}>{PROGRESO_EJS_DEMO[nom].length} sesiones registradas</Text>
-            </View>
-            {ejSelec === nom ? <Text style={styles.activeCheck}>✓</Text> : null}
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.card}>
-        <View style={styles.rowBetween}>
-          <View>
-            <Text style={styles.cardTitle}>{ejSelec}</Text>
-            <Text style={styles.cardSub}>RF52 · evolución de carga</Text>
-          </View>
-          <Text style={[styles.positiveBadge, { color: ganancia >= 0 ? COLORS.success : COLORS.danger }]}>{ganancia >= 0 ? '+' : ''}{ganancia}{unidad}</Text>
-        </View>
-        <PeriodSelector value={periodoEj} onChange={setPeriodoEj} />
-        <BarChart values={valores} height={130} color={COLORS.accent} />
-        <View style={styles.statsMiniGrid}>
-          <View style={styles.miniStat}><Text style={styles.miniValue}>{maxKg}{unidad}</Text><Text style={styles.miniLabel}>Máximo</Text></View>
-          <View style={styles.miniStat}><Text style={styles.miniValue}>{minKg}{unidad}</Text><Text style={styles.miniLabel}>Inicio período</Text></View>
-          <View style={styles.miniStat}><Text style={[styles.miniValue, { color: COLORS.success }]}>{ganancia >= 0 ? '+' : ''}{ganancia}{unidad}</Text><Text style={styles.miniLabel}>Cambio</Text></View>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Comparativo de sesiones</Text>
-        {datos.map((d, i, arr) => {
-          const anterior = i > 0 ? arr[i - 1].kg : d.kg;
-          return <FilaComparativa key={`${d.fecha}-${i}`} d={d} numero={arr.length - i} diff={d.kg - anterior} unidad={unidad} />;
-        })}
-      </View>
-    </>
-  );
+function SessionDetailByExercise({ sesion, ejercicio, open, onToggle }) {
+  const total = sesion.series.reduce((a, s) => a + s.kg, 0); const promedio = Math.round(sesion.series.reduce((a, s) => a + parseInt(s.t, 10), 0) / sesion.series.length);
+  return <View style={styles.sessionDetailCard}><TouchableOpacity style={styles.sessionHeader} onPress={onToggle}><View><Text style={styles.compareDate}>{sesion.fecha}</Text><Text style={styles.compareSub}>{sesion.series.length} series · promedio {promedio}s · volumen {total}kg</Text></View><Text style={styles.chevron}>{open ? '⌃' : '⌄'}</Text></TouchableOpacity>{open ? <View style={styles.seriesBox}>{sesion.series.map(s => <View key={s.s} style={styles.seriesRow}><View style={styles.setNum}><Text style={styles.setNumText}>{s.s}</Text></View><Text style={styles.seriesText}>{s.kg}kg</Text><Text style={styles.seriesText}>{s.reps} reps</Text><Text style={styles.seriesText}>{s.t}</Text></View>)}{sesion.nota ? <Text style={styles.noteText}>📝 {sesion.nota}</Text> : null}</View> : null}</View>;
+}
+function EjercicioTab({ ejSelec, setEjSelec, grupoFiltro, setGrupoFiltro, periodoEj, setPeriodoEj, onExport }) {
+  const [open, setOpen] = useState(null);
+  const nombres = Object.keys(PROGRESO_EJS_DEMO).filter(n => grupoFiltro === 'Todos' || PROGRESO_EJS_DEMO[n].grupo === grupoFiltro);
+  const actual = PROGRESO_EJS_DEMO[ejSelec] || PROGRESO_EJS_DEMO['Press de banca']; const datos = actual.datos; const valores = datos.map(d => d.kg); const ganancia = valores.at(-1) - valores[0];
+  const sesionesEj = SESIONES_DEMO.flatMap(s => s.ejercicios.filter(e => e.nombre === ejSelec).map(e => ({ fecha: `${s.fecha} · ${s.hora}`, ...e })));
+  return <><View style={styles.card}><Text style={styles.cardTitle}>Seleccionar ejercicio</Text><View style={styles.tagsRow}>{GRUPOS.map(g => <TouchableOpacity key={g} onPress={() => setGrupoFiltro(g)} style={[styles.tag, grupoFiltro === g && styles.tagActive]}><Text style={[styles.tagText, grupoFiltro === g && styles.tagTextActive]}>{g}</Text></TouchableOpacity>)}</View>{nombres.map(n => <TouchableOpacity key={n} onPress={() => setEjSelec(n)} style={[styles.exercisePick, ejSelec === n && styles.exercisePickActive]}><Text style={styles.exerciseIcon}>{PROGRESO_EJS_DEMO[n].icon}</Text><View style={{ flex: 1 }}><Text style={styles.exerciseName}>{n}</Text><Text style={styles.exerciseSub}>{PROGRESO_EJS_DEMO[n].grupo} · {PROGRESO_EJS_DEMO[n].datos.length} registros</Text></View>{ejSelec === n ? <Text style={styles.activeCheck}>✓</Text> : null}</TouchableOpacity>)}</View><View style={styles.card}><View style={styles.rowBetween}><View><Text style={styles.cardTitle}>{ejSelec}</Text><Text style={styles.cardSub}>RF52 · evolución de carga</Text></View><Text style={[styles.positiveBadge, { color: COLORS.success }]}>+{ganancia}{actual.unidad}</Text></View><PeriodSelector value={periodoEj} onChange={setPeriodoEj} /><BarChart values={valores} height={130} color={COLORS.accent} /><View style={styles.statsMiniGrid}><View style={styles.miniStat}><Text style={styles.miniValue}>{Math.max(...valores)}{actual.unidad}</Text><Text style={styles.miniLabel}>Máximo</Text></View><View style={styles.miniStat}><Text style={styles.miniValue}>{valores[0]}{actual.unidad}</Text><Text style={styles.miniLabel}>Inicio</Text></View><View style={styles.miniStat}><Text style={[styles.miniValue, { color: COLORS.success }]}>+{ganancia}{actual.unidad}</Text><Text style={styles.miniLabel}>Cambio</Text></View></View></View><View style={styles.card}><Text style={styles.cardTitle}>Comparativo de sesiones</Text><Text style={styles.cardSub}>Toca una sesión para ver series, reps y tiempo de ejecución</Text>{sesionesEj.length === 0 ? <Text style={styles.emptyText}>Aún no hay sesiones detalladas para este ejercicio.</Text> : sesionesEj.map((s, i) => <SessionDetailByExercise key={`${s.fecha}-${i}`} sesion={s} ejercicio={ejSelec} open={open === i} onToggle={() => setOpen(open === i ? null : i)} />)}</View><ExportButton section="progreso por ejercicio" onPress={onExport} /></>;
 }
 
-function ConsistenciaTab({ periodoCons, setPeriodoCons }) {
-  const semanas = [
-    { label: 'S1 Ene', dias: 3, objetivo: 3 },
-    { label: 'S2 Ene', dias: 2, objetivo: 3 },
-    { label: 'S3 Ene', dias: 3, objetivo: 3 },
-    { label: 'S4 Ene', dias: 3, objetivo: 3 },
-    { label: 'S1 Feb', dias: 1, objetivo: 3 },
-    { label: 'S2 Feb', dias: 3, objetivo: 3 },
-    { label: 'S3 Feb', dias: 3, objetivo: 3 },
-    { label: 'S4 Feb', dias: 2, objetivo: 3 },
-    { label: 'S1 Mar', dias: 3, objetivo: 3 },
-  ];
-  const adherencia = Math.round((semanas.reduce((s, w) => s + w.dias, 0) / semanas.reduce((s, w) => s + w.objetivo, 0)) * 100);
-  const grupos = [
-    { label: 'Pecho', value: 34, color: COLORS.accent },
-    { label: 'Pierna', value: 29, color: COLORS.accent2 },
-    { label: 'Espalda', value: 22, color: COLORS.accent3 },
-    { label: 'Hombro', value: 15, color: COLORS.success },
-  ];
-
-  return (
-    <>
-      <View style={styles.cardAccent}>
-        <View style={styles.rowBetween}>
-          <View>
-            <Text style={styles.bigTitle}>🔥 14 días</Text>
-            <Text style={styles.cardSub}>Racha actual de entrenamiento</Text>
-          </View>
-          <View style={styles.ringFake}><Text style={styles.ringText}>{adherencia}%</Text></View>
-        </View>
-        <PeriodSelector value={periodoCons} onChange={setPeriodoCons} />
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Adherencia semanal</Text>
-        <View style={styles.weekChart}>
-          {semanas.map((s, i) => (
-            <View key={s.label} style={styles.weekColumn}>
-              <View style={styles.weekTrack}>
-                <View style={[styles.weekBar, { height: `${Math.min(100, (s.dias / s.objetivo) * 100)}%`, backgroundColor: s.dias >= s.objetivo ? COLORS.success : COLORS.accent3 }]} />
-              </View>
-              <Text style={styles.weekLabel}>{i + 1}</Text>
-            </View>
-          ))}
-        </View>
-        <Text style={styles.cardSub}>Objetivo declarado: 3 días por semana</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Grupos musculares trabajados</Text>
-        {grupos.map(g => (
-          <View key={g.label} style={styles.muscleRow}>
-            <Text style={styles.muscleName}>{g.label}</Text>
-            <View style={styles.muscleTrack}><View style={[styles.muscleFill, { width: `${g.value}%`, backgroundColor: g.color }]} /></View>
-            <Text style={styles.muscleValue}>{g.value}%</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.kpiGrid}>
-        <KpiCard icon="📅" value="3.1" label="Prom./sem" color={COLORS.accent} />
-        <KpiCard icon="🏋️" value="24" label="Entrenos" color={COLORS.success} />
-        <KpiCard icon="🎯" value="8" label="Ejercicios" color={COLORS.accent2} />
-        <KpiCard icon="🧩" value="4" label="Grupos" color={COLORS.accent3} />
-      </View>
-    </>
-  );
+function ProgressList({ title, data, suffix }) { return <View style={styles.card}><Text style={styles.cardTitle}>{title}</Text>{data.map((d, i) => <View key={d.label} style={styles.rankRow}><View style={styles.rankNum}><Text style={styles.rankNumText}>{i + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.rankLabel}>{d.icon} {d.label}</Text><Text style={styles.cardSub}>{d.sub}</Text></View><Text style={styles.rankValue}>+{d.value}{suffix}</Text></View>)}</View>; }
+function ConsistenciaTab({ periodoCons, setPeriodoCons, onExport }) {
+  const [topGrupo, setTopGrupo] = useState('pesos');
+  const semanas = [{ dias: 3, obj: 3 }, { dias: 2, obj: 3 }, { dias: 3, obj: 3 }, { dias: 3, obj: 3 }, { dias: 1, obj: 3 }, { dias: 3, obj: 3 }, { dias: 3, obj: 3 }, { dias: 2, obj: 3 }, { dias: 3, obj: 3 }];
+  const total = semanas.reduce((a, s) => a + s.dias, 0); const objetivo = semanas.reduce((a, s) => a + s.obj, 0); const adherencia = Math.round((total / objetivo) * 100);
+  const topEjercicios = Object.entries(PROGRESO_EJS_DEMO).map(([label, v]) => ({ label, icon: v.icon, value: v.datos.at(-1).kg - v.datos[0].kg, sub: `${v.grupo} · ${v.datos[0].kg}${v.unidad} → ${v.datos.at(-1).kg}${v.unidad}` })).sort((a, b) => b.value - a.value).slice(0, 5);
+  const gruposPeso = [{ label: 'Pierna', icon: '🦵', value: 80, sub: 'Sentadilla + prensa' }, { label: 'Espalda', icon: '🔝', value: 50, sub: 'Peso muerto + jalón' }, { label: 'Pecho', icon: '🏋️', value: 33, sub: 'Press + aperturas' }, { label: 'Tríceps', icon: '⬇️', value: 11, sub: 'Extensiones' }, { label: 'Bíceps', icon: '💪', value: 8, sub: 'Curl bíceps' }];
+  const gruposMedidas = [{ label: 'Pecho', icon: '🏋️', value: 3, sub: '95 cm → 98 cm' }, { label: 'Bíceps', icon: '💪', value: 2, sub: '35 cm → 37 cm' }, { label: 'Tríceps', icon: '⬇️', value: 2, sub: 'Estimado por brazo' }, { label: 'Pantorrilla', icon: '🦵', value: 1, sub: '36 cm → 37 cm' }, { label: 'Muslo', icon: '🦵', value: 1, sub: '54 cm → 55 cm' }];
+  return <><View style={styles.cardAccent}><View style={styles.rowBetween}><View><Text style={styles.bigTitle}>{adherencia}%</Text><Text style={styles.cardSub}>Adherencia al objetivo semanal</Text></View><View style={styles.freqBox}><Text style={styles.freqValue}>3.1</Text><Text style={styles.freqLabel}>prom./sem</Text></View></View><Text style={styles.cardSub}>Objetivo semanal: 3 entrenamientos por semana</Text><PeriodSelector value={periodoCons} onChange={setPeriodoCons} /></View><View style={styles.card}><View style={styles.rowBetween}><Text style={styles.cardTitle}>Frecuencia semanal</Text><Text style={styles.goalPill}>Objetivo: 3 días</Text></View><View style={styles.legendRow}><View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.success }]} /><Text style={styles.legendText}>Cumplido</Text></View><View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: COLORS.accent3 }]} /><Text style={styles.legendText}>Debajo del objetivo</Text></View></View><View style={styles.weekChart}>{semanas.map((s, i) => <View key={i} style={styles.weekColumn}><View style={styles.weekTrack}><View style={[styles.weekBar, { height: `${Math.min(100, (s.dias / s.obj) * 100)}%`, backgroundColor: s.dias >= s.obj ? COLORS.success : COLORS.accent3 }]} /></View><Text style={styles.weekLabel}>S{i + 1}</Text></View>)}</View></View><ProgressList title="Top ejercicios por progreso en peso" data={topEjercicios} suffix="kg" /><View style={styles.card}><View style={styles.rowBetween}><Text style={styles.cardTitle}>Top grupos</Text><View style={styles.miniTabs}><TouchableOpacity onPress={() => setTopGrupo('pesos')} style={[styles.miniTab, topGrupo === 'pesos' && styles.miniTabActive]}><Text style={[styles.miniTabText, topGrupo === 'pesos' && styles.miniTabTextActive]}>Pesos</Text></TouchableOpacity><TouchableOpacity onPress={() => setTopGrupo('medidas')} style={[styles.miniTab, topGrupo === 'medidas' && styles.miniTabActive]}><Text style={[styles.miniTabText, topGrupo === 'medidas' && styles.miniTabTextActive]}>Medidas</Text></TouchableOpacity></View></View>{(topGrupo === 'pesos' ? gruposPeso : gruposMedidas).map((d, i) => <View key={d.label} style={styles.rankRow}><View style={styles.rankNum}><Text style={styles.rankNumText}>{i + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.rankLabel}>{d.icon} {d.label}</Text><Text style={styles.cardSub}>{d.sub}</Text></View><Text style={styles.rankValue}>+{d.value}{topGrupo === 'pesos' ? 'kg' : 'cm'}</Text></View>)}</View><View style={styles.cardAccent}><Text style={styles.cardTitle}>🏆 Mejor racha</Text><Text style={styles.bigTitle}>21 días</Text><Text style={styles.cardSub}>Tu mejor racha histórica registrada en el sistema.</Text></View><ExportButton section="consistencia" onPress={onExport} /></>;
 }
 
-function ExportModal({ visible, onClose, tabActiva }) {
-  const [formato, setFormato] = useState('csv');
-  const [anonimizar, setAnonimizar] = useState(false);
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.bottomSheet}>
-          <View style={styles.handle} />
-          <Text style={styles.modalTitle}>Exportar progreso</Text>
-          <Text style={styles.cardSub}>RF57 · genera un reporte para consulta personal</Text>
-          <View style={styles.exportGrid}>
-            {['csv', 'pdf'].map(f => (
-              <TouchableOpacity key={f} onPress={() => setFormato(f)} style={[styles.exportOption, formato === f && styles.exportActive]}>
-                <Text style={styles.exportIcon}>{f === 'csv' ? '📊' : '📄'}</Text>
-                <Text style={[styles.exportText, formato === f && styles.exportTextActive]}>{f.toUpperCase()}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {tabActiva === 'resumen' ? (
-            <TouchableOpacity onPress={() => setAnonimizar(v => !v)} style={[styles.checkRow, anonimizar && styles.checkRowActive]}>
-              <View style={[styles.checkbox, anonimizar && styles.checkboxActive]}><Text style={styles.checkText}>{anonimizar ? '✓' : ''}</Text></View>
-              <View>
-                <Text style={styles.checkTitle}>Anonimizar datos identificables</Text>
-                <Text style={styles.checkSub}>Sustituye nombre y correo por ID interno</Text>
-              </View>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => { onClose(); Alert.alert('Exportación demo', `Se exportaría como ${formato.toUpperCase()}.`); }}>
-            <Text style={styles.primaryText}>{formato === 'csv' ? '📊' : '📄'} Exportar como {formato.toUpperCase()}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={onClose}>
-            <Text style={styles.secondaryText}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
+function ExportModal({ visible, onClose, tabActiva }) { const [formato, setFormato] = useState('csv'); return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.modalOverlay}><View style={styles.bottomSheet}><View style={styles.handle} /><Text style={styles.modalTitle}>Exportar progreso</Text><Text style={styles.cardSub}>RF57 · reporte de {tabActiva === 'resumen' ? 'resumen completo' : tabActiva === 'ejercicio' ? 'progreso por ejercicio' : 'consistencia'}</Text><View style={styles.exportGrid}>{['csv', 'pdf'].map(f => <TouchableOpacity key={f} onPress={() => setFormato(f)} style={[styles.exportOption, formato === f && styles.exportActive]}><Text style={styles.exportIcon}>{f === 'csv' ? '📊' : '📄'}</Text><Text style={[styles.exportText, formato === f && styles.exportTextActive]}>{f.toUpperCase()}</Text></TouchableOpacity>)}</View><TouchableOpacity style={styles.primaryBtn} onPress={() => { onClose(); Alert.alert('Exportación demo', `Se exportaría ${tabActiva} como ${formato.toUpperCase()}.`); }}><Text style={styles.primaryText}>Exportar como {formato.toUpperCase()}</Text></TouchableOpacity><TouchableOpacity style={styles.secondaryBtn} onPress={onClose}><Text style={styles.secondaryText}>Cancelar</Text></TouchableOpacity></View></View></Modal>; }
 
 export default function ProgresoScreen({ navigation }) {
-  const [tabActiva, setTabActiva] = useState('resumen');
-  const [ejSelec, setEjSelec] = useState('Press de banca');
-  const [grupoFiltro, setGrupoFiltro] = useState('Todos');
-  const [periodoEj, setPeriodoEj] = useState('3m');
-  const [periodoRes, setPeriodoRes] = useState('1m');
-  const [periodoCons, setPeriodoCons] = useState('3m');
-  const [modalExport, setModalExport] = useState(false);
-
-  return (
-    <View style={styles.container}>
-      <Header navigation={navigation} />
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Badge>RF50–RF57</Badge>
-        <TabSelector active={tabActiva} onChange={setTabActiva} />
-        {tabActiva === 'resumen' && <ResumenTab periodoRes={periodoRes} setPeriodoRes={setPeriodoRes} navigation={navigation} onExport={() => setModalExport(true)} />}
-        {tabActiva === 'ejercicio' && <EjercicioTab ejSelec={ejSelec} setEjSelec={setEjSelec} grupoFiltro={grupoFiltro} setGrupoFiltro={setGrupoFiltro} periodoEj={periodoEj} setPeriodoEj={setPeriodoEj} />}
-        {tabActiva === 'consistencia' && <ConsistenciaTab periodoCons={periodoCons} setPeriodoCons={setPeriodoCons} />}
-      </ScrollView>
-      <ExportModal visible={modalExport} onClose={() => setModalExport(false)} tabActiva={tabActiva} />
-    </View>
-  );
+  const [tabActiva, setTabActiva] = useState('resumen'); const [ejSelec, setEjSelec] = useState('Press de banca'); const [grupoFiltro, setGrupoFiltro] = useState('Todos'); const [periodoEj, setPeriodoEj] = useState('3m'); const [periodoRes, setPeriodoRes] = useState('1m'); const [periodoCons, setPeriodoCons] = useState('3m'); const [modalExport, setModalExport] = useState(false);
+  return <View style={styles.container}><Header navigation={navigation} /><ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}><Badge>RF50–RF57</Badge><TabSelector active={tabActiva} onChange={setTabActiva} />{tabActiva === 'resumen' && <ResumenTab periodoRes={periodoRes} setPeriodoRes={setPeriodoRes} navigation={navigation} onExport={() => setModalExport(true)} />}{tabActiva === 'ejercicio' && <EjercicioTab ejSelec={ejSelec} setEjSelec={setEjSelec} grupoFiltro={grupoFiltro} setGrupoFiltro={setGrupoFiltro} periodoEj={periodoEj} setPeriodoEj={setPeriodoEj} onExport={() => setModalExport(true)} />}{tabActiva === 'consistencia' && <ConsistenciaTab periodoCons={periodoCons} setPeriodoCons={setPeriodoCons} onExport={() => setModalExport(true)} />}</ScrollView><ExportModal visible={modalExport} onClose={() => setModalExport(false)} tabActiva={tabActiva} /></View>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  statusBar: { paddingTop: 12, paddingHorizontal: 18, height: 42, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statusTime: { color: COLORS.text, fontWeight: '800', fontSize: 12 },
-  statusIcons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  statusText: { color: COLORS.text2, fontSize: 10 },
-  header: { height: 56, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  backText: { color: COLORS.text2, fontSize: 24, fontWeight: '500' },
-  screenTitle: { color: COLORS.text, fontWeight: '900', fontSize: 17 },
-  body: { paddingHorizontal: 18, paddingBottom: 36, gap: 12 },
-  badge: { alignSelf: 'flex-start', borderWidth: 1, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
-  badgeText: { fontSize: 10, fontWeight: '900' },
-  tabsShell: { flexDirection: 'row', gap: 6, backgroundColor: COLORS.surface2, borderRadius: 10, padding: 4 },
-  tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
-  tabActive: { backgroundColor: COLORS.accent },
-  tabText: { color: COLORS.muted, fontSize: 12, fontWeight: '900' },
-  tabTextActive: { color: 'white' },
-  card: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: COLORS.border, gap: 10 },
-  cardAccent: { backgroundColor: 'rgba(124,111,205,0.15)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(124,111,205,0.35)', gap: 12 },
-  cardTitle: { color: COLORS.text, fontSize: 13, fontWeight: '900' },
-  cardSub: { color: COLORS.muted, fontSize: 11, lineHeight: 16 },
-  bigTitle: { color: COLORS.text, fontSize: 28, fontWeight: '900' },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  kpiCard: { width: '48%', backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  kpiIcon: { fontSize: 22 },
-  kpiValue: { fontSize: 16, fontWeight: '900' },
-  kpiLabel: { fontSize: 11, color: COLORS.muted, marginTop: 1 },
-  legendRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  legendItem: { flexDirection: 'row', gap: 5, alignItems: 'center' },
-  legendLine: { width: 14, height: 3, borderRadius: 2 },
-  legendText: { color: COLORS.muted, fontSize: 10 },
-  radarBox: { gap: 9 },
-  measureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  measureLabel: { color: COLORS.text2, fontSize: 11, fontWeight: '800' },
-  measureDiff: { fontSize: 10, marginTop: 2 },
-  measureTrack: { flex: 1, height: 8, backgroundColor: COLORS.surface2, borderRadius: 8, overflow: 'hidden', position: 'relative' },
-  measureBase: { position: 'absolute', height: 8, backgroundColor: 'rgba(124,111,205,0.32)', borderRadius: 8 },
-  measureCurrent: { position: 'absolute', height: 8, backgroundColor: COLORS.accent, borderRadius: 8 },
-  measureValue: { color: COLORS.text, fontSize: 11, fontWeight: '900', width: 32, textAlign: 'right' },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  tag: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.surface3, borderWidth: 1, borderColor: COLORS.border },
-  tagActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  tagText: { color: COLORS.muted, fontSize: 11, fontWeight: '800' },
-  tagTextActive: { color: 'white' },
-  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: COLORS.border },
-  dateBox: { width: 40, borderRadius: 8, backgroundColor: COLORS.surface2, alignItems: 'center', paddingVertical: 6 },
-  dateMonth: { color: COLORS.muted, fontSize: 9, textTransform: 'uppercase' },
-  dateDay: { color: COLORS.accent, fontSize: 16, fontWeight: '900' },
-  recentTitle: { color: COLORS.text, fontSize: 13, fontWeight: '800' },
-  recentSub: { color: COLORS.muted, fontSize: 11, marginTop: 2 },
-  noteBadge: { color: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.15)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' },
-  chevron: { color: COLORS.muted, fontSize: 18 },
-  outlineBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  outlineText: { color: COLORS.text2, fontSize: 13, fontWeight: '800' },
-  selectGrid: { flexDirection: 'row', gap: 10 },
-  tinyLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '900', marginBottom: 6, textTransform: 'uppercase' },
-  dateChip: { backgroundColor: COLORS.surface2, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 6, paddingHorizontal: 8, marginBottom: 6 },
-  dateChipActive: { borderColor: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.18)' },
-  dateChipText: { color: COLORS.muted, fontSize: 11, fontWeight: '700' },
-  dateChipTextActive: { color: COLORS.accent },
-  divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 2 },
-  emptyText: { color: COLORS.muted, fontSize: 12, textAlign: 'center', paddingVertical: 10 },
-  commonRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: COLORS.border },
-  commonName: { flex: 1, color: COLORS.text2, fontSize: 11 },
-  commonValue: { color: COLORS.accent, fontSize: 12, fontWeight: '900' },
-  primaryBtn: { backgroundColor: COLORS.accent, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  primaryText: { color: 'white', fontWeight: '900', fontSize: 14 },
-  secondaryBtn: { backgroundColor: COLORS.surface2, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  secondaryText: { color: COLORS.text2, fontWeight: '800', fontSize: 14 },
-  exercisePick: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.surface2, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: 10 },
-  exercisePickActive: { borderColor: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.16)' },
-  exerciseIcon: { fontSize: 20, width: 28, textAlign: 'center' },
-  exerciseName: { color: COLORS.text, fontSize: 13, fontWeight: '800' },
-  exerciseSub: { color: COLORS.muted, fontSize: 11, marginTop: 2 },
-  activeCheck: { color: COLORS.accent, fontSize: 16, fontWeight: '900' },
-  rowBetween: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
-  positiveBadge: { fontSize: 13, fontWeight: '900', backgroundColor: 'rgba(52,211,153,0.12)', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, overflow: 'hidden' },
-  chartPlaceholder: { backgroundColor: COLORS.surface2, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: COLORS.border },
-  chartBars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 7 },
-  chartBar: { flex: 1, borderTopLeftRadius: 6, borderTopRightRadius: 6, minHeight: 18 },
-  statsMiniGrid: { flexDirection: 'row', gap: 8 },
-  miniStat: { flex: 1, backgroundColor: COLORS.surface2, borderRadius: 8, alignItems: 'center', paddingVertical: 9 },
-  miniValue: { color: COLORS.accent, fontSize: 14, fontWeight: '900' },
-  miniLabel: { color: COLORS.muted, fontSize: 9, marginTop: 2 },
-  compareRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: COLORS.border },
-  setNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.surface3, alignItems: 'center', justifyContent: 'center' },
-  setNumText: { color: COLORS.text2, fontWeight: '900', fontSize: 11 },
-  compareDate: { color: COLORS.text, fontSize: 13, fontWeight: '800' },
-  compareSub: { color: COLORS.muted, fontSize: 11, marginTop: 2 },
-  compareKg: { color: COLORS.accent, fontSize: 14, fontWeight: '900' },
-  compareDiff: { fontSize: 10, fontWeight: '800', marginTop: 2 },
-  noteText: { color: COLORS.muted, fontSize: 10, fontStyle: 'italic', marginTop: 4 },
-  ringFake: { width: 64, height: 64, borderRadius: 32, borderWidth: 7, borderColor: COLORS.accent, alignItems: 'center', justifyContent: 'center' },
-  ringText: { color: COLORS.text, fontWeight: '900', fontSize: 14 },
-  weekChart: { height: 135, flexDirection: 'row', gap: 8, alignItems: 'flex-end', paddingTop: 12 },
-  weekColumn: { flex: 1, alignItems: 'center', gap: 5 },
-  weekTrack: { width: '100%', height: 100, backgroundColor: COLORS.surface2, borderRadius: 7, justifyContent: 'flex-end', overflow: 'hidden' },
-  weekBar: { width: '100%', borderTopLeftRadius: 7, borderTopRightRadius: 7 },
-  weekLabel: { color: COLORS.muted, fontSize: 9 },
-  muscleRow: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 6 },
-  muscleName: { color: COLORS.text2, width: 58, fontSize: 12, fontWeight: '700' },
-  muscleTrack: { flex: 1, height: 8, borderRadius: 8, backgroundColor: COLORS.surface2, overflow: 'hidden' },
-  muscleFill: { height: 8, borderRadius: 8 },
-  muscleValue: { color: COLORS.muted, width: 34, textAlign: 'right', fontSize: 11, fontWeight: '800' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
-  bottomSheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderColor: COLORS.border, padding: 18, paddingBottom: 30, gap: 12 },
-  handle: { width: 38, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center' },
-  modalTitle: { color: COLORS.text, fontSize: 16, fontWeight: '900' },
-  exportGrid: { flexDirection: 'row', gap: 10 },
-  exportOption: { flex: 1, backgroundColor: COLORS.surface2, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, padding: 14, alignItems: 'center', gap: 6 },
-  exportActive: { borderColor: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.18)' },
-  exportIcon: { fontSize: 26 },
-  exportText: { color: COLORS.muted, fontWeight: '900' },
-  exportTextActive: { color: COLORS.accent },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, backgroundColor: COLORS.surface2, borderWidth: 1, borderColor: COLORS.border },
-  checkRowActive: { backgroundColor: 'rgba(94,234,212,0.08)', borderColor: COLORS.accent2 },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
-  checkboxActive: { backgroundColor: COLORS.accent2, borderColor: COLORS.accent2 },
-  checkText: { color: 'white', fontSize: 12, fontWeight: '900' },
-  checkTitle: { color: COLORS.text, fontSize: 12, fontWeight: '900' },
-  checkSub: { color: COLORS.muted, fontSize: 10, marginTop: 2 },
+  container: { flex: 1, backgroundColor: COLORS.bg }, statusBar: { paddingTop: 12, paddingHorizontal: 18, height: 42, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, statusTime: { color: COLORS.text, fontWeight: '800', fontSize: 12 }, statusIcons: { flexDirection: 'row', gap: 8, alignItems: 'center' }, statusText: { color: COLORS.text2, fontSize: 10 }, header: { height: 56, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, backBtn: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, backText: { color: COLORS.text2, fontSize: 24 }, screenTitle: { color: COLORS.text, fontWeight: '900', fontSize: 17 }, body: { paddingHorizontal: 18, paddingBottom: 36, gap: 12 },
+  badge: { alignSelf: 'flex-start', borderWidth: 1, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, borderColor: `${COLORS.accent3}55`, backgroundColor: `${COLORS.accent3}18` }, badgeText: { color: COLORS.accent3, fontSize: 10, fontWeight: '900' }, tabsShell: { flexDirection: 'row', gap: 6, backgroundColor: COLORS.surface2, borderRadius: 10, padding: 4 }, tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' }, tabActive: { backgroundColor: COLORS.accent }, tabText: { color: COLORS.muted, fontSize: 12, fontWeight: '900' }, tabTextActive: { color: 'white' },
+  card: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: COLORS.border, gap: 10 }, cardAccent: { backgroundColor: 'rgba(124,111,205,0.15)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(124,111,205,0.35)', gap: 12 }, cardTitle: { color: COLORS.text, fontSize: 13, fontWeight: '900' }, cardSub: { color: COLORS.muted, fontSize: 11, lineHeight: 16 }, bigTitle: { color: COLORS.text, fontSize: 28, fontWeight: '900' }, rowBetween: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, kpiCard: { width: '48%', backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', gap: 10 }, kpiIcon: { fontSize: 22 }, kpiValue: { fontSize: 16, fontWeight: '900' }, kpiLabel: { fontSize: 11, color: COLORS.muted, marginTop: 1 },
+  hexBox: { height: 190, alignItems: 'center', justifyContent: 'center', position: 'relative' }, hexagonOuter: { width: 118, height: 118, borderRadius: 22, borderWidth: 2, borderColor: COLORS.accent, transform: [{ rotate: '45deg' }], alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124,111,205,0.10)' }, hexagonInner: { transform: [{ rotate: '-45deg' }], alignItems: 'center' }, hexCenter: { color: COLORS.text, fontWeight: '900', fontSize: 14 }, hexPercent: { color: COLORS.accent2, fontSize: 11, marginTop: 3 }, hexLabels: { ...StyleSheet.absoluteFillObject }, hexLabel: { position: 'absolute', alignItems: 'center', minWidth: 74 }, hexLabelText: { color: COLORS.text2, fontSize: 11, fontWeight: '800' }, hexLabelValue: { fontSize: 10, fontWeight: '900' }, hexPos0: { top: 4, left: '40%' }, hexPos1: { top: 38, right: 4 }, hexPos2: { bottom: 38, right: 4 }, hexPos3: { bottom: 4, left: '40%' }, hexPos4: { bottom: 38, left: 4 }, hexPos5: { top: 38, left: 4 },
+  measureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, measureCard: { width: '48%', backgroundColor: COLORS.surface2, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: COLORS.border }, measureLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '900' }, measureValue: { color: COLORS.text, fontSize: 16, fontWeight: '900', marginTop: 3 }, measureDiff: { fontSize: 10, marginTop: 2, fontWeight: '800' },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, tag: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.surface3, borderWidth: 1, borderColor: COLORS.border }, tagActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent }, tagText: { color: COLORS.muted, fontSize: 11, fontWeight: '800' }, tagTextActive: { color: 'white' },
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: COLORS.border }, dateBox: { width: 40, borderRadius: 8, backgroundColor: COLORS.surface2, alignItems: 'center', paddingVertical: 6 }, dateMonth: { color: COLORS.muted, fontSize: 9, textTransform: 'uppercase' }, dateDay: { color: COLORS.accent, fontSize: 16, fontWeight: '900' }, recentTitle: { color: COLORS.text, fontSize: 13, fontWeight: '800' }, recentSub: { color: COLORS.muted, fontSize: 11, marginTop: 2 }, noteBadge: { color: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.15)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' }, chevron: { color: COLORS.muted, fontSize: 18 }, outlineBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 }, outlineText: { color: COLORS.text2, fontSize: 13, fontWeight: '800' },
+  selectGrid: { flexDirection: 'row', gap: 10 }, tinyLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '900', marginBottom: 6, textTransform: 'uppercase' }, searchInput: { backgroundColor: COLORS.surface2, borderColor: COLORS.border, borderWidth: 1, borderRadius: 8, color: COLORS.text, paddingHorizontal: 9, paddingVertical: 7, fontSize: 11, marginBottom: 6 }, dateChip: { backgroundColor: COLORS.surface2, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 6, paddingHorizontal: 8, marginBottom: 6 }, dateChipActive: { borderColor: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.18)' }, dateChipText: { color: COLORS.muted, fontSize: 10, fontWeight: '700' }, dateChipTextActive: { color: COLORS.accent }, divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 2 }, emptyText: { color: COLORS.muted, fontSize: 12, textAlign: 'center', paddingVertical: 10 }, commonRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: COLORS.border }, commonName: { flex: 1, color: COLORS.text2, fontSize: 11 }, commonValue: { color: COLORS.accent, fontSize: 12, fontWeight: '900' }, compareDiff: { fontSize: 10, fontWeight: '800', marginTop: 2 },
+  primaryBtn: { backgroundColor: COLORS.accent, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }, primaryText: { color: 'white', fontWeight: '900', fontSize: 14 }, secondaryBtn: { backgroundColor: COLORS.surface2, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }, secondaryText: { color: COLORS.text2, fontWeight: '800', fontSize: 14 }, exercisePick: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.surface2, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: 10 }, exercisePickActive: { borderColor: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.16)' }, exerciseIcon: { fontSize: 20, width: 28, textAlign: 'center' }, exerciseName: { color: COLORS.text, fontSize: 13, fontWeight: '800' }, exerciseSub: { color: COLORS.muted, fontSize: 11, marginTop: 2 }, activeCheck: { color: COLORS.accent, fontSize: 16, fontWeight: '900' }, positiveBadge: { fontSize: 13, fontWeight: '900', backgroundColor: 'rgba(52,211,153,0.12)', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, overflow: 'hidden' }, chartPlaceholder: { backgroundColor: COLORS.surface2, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: COLORS.border }, chartBars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 7 }, chartBar: { flex: 1, borderTopLeftRadius: 6, borderTopRightRadius: 6, minHeight: 18 }, statsMiniGrid: { flexDirection: 'row', gap: 8 }, miniStat: { flex: 1, backgroundColor: COLORS.surface2, borderRadius: 8, alignItems: 'center', paddingVertical: 9 }, miniValue: { color: COLORS.accent, fontSize: 14, fontWeight: '900' }, miniLabel: { color: COLORS.muted, fontSize: 9, marginTop: 2 },
+  sessionDetailCard: { backgroundColor: COLORS.surface2, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, marginTop: 8, overflow: 'hidden' }, sessionHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, alignItems: 'center' }, compareDate: { color: COLORS.text, fontSize: 13, fontWeight: '800' }, compareSub: { color: COLORS.muted, fontSize: 11, marginTop: 2 }, seriesBox: { padding: 10, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 6 }, seriesRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, setNum: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.surface3, alignItems: 'center', justifyContent: 'center' }, setNumText: { color: COLORS.text2, fontWeight: '900', fontSize: 11 }, seriesText: { color: COLORS.text2, fontSize: 12, flex: 1, textAlign: 'center' }, noteText: { color: COLORS.muted, fontSize: 10, fontStyle: 'italic', marginTop: 4 },
+  freqBox: { backgroundColor: COLORS.surface2, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border }, freqValue: { color: COLORS.accent2, fontSize: 22, fontWeight: '900' }, freqLabel: { color: COLORS.muted, fontSize: 10 }, goalPill: { color: COLORS.accent, fontWeight: '900', fontSize: 11, backgroundColor: 'rgba(124,111,205,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' }, legendRow: { flexDirection: 'row', gap: 12, alignItems: 'center' }, legendItem: { flexDirection: 'row', gap: 5, alignItems: 'center' }, legendDot: { width: 9, height: 9, borderRadius: 5 }, legendText: { color: COLORS.muted, fontSize: 10 }, weekChart: { height: 135, flexDirection: 'row', gap: 8, alignItems: 'flex-end', paddingTop: 12 }, weekColumn: { flex: 1, alignItems: 'center', gap: 5 }, weekTrack: { width: '100%', height: 100, backgroundColor: COLORS.surface2, borderRadius: 7, justifyContent: 'flex-end', overflow: 'hidden' }, weekBar: { width: '100%', borderTopLeftRadius: 7, borderTopRightRadius: 7 }, weekLabel: { color: COLORS.muted, fontSize: 9 },
+  rankRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: COLORS.border }, rankNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.surface3, alignItems: 'center', justifyContent: 'center' }, rankNumText: { color: COLORS.accent, fontWeight: '900', fontSize: 11 }, rankLabel: { color: COLORS.text, fontSize: 12, fontWeight: '900' }, rankValue: { color: COLORS.success, fontSize: 13, fontWeight: '900' }, miniTabs: { flexDirection: 'row', gap: 5, backgroundColor: COLORS.surface2, padding: 3, borderRadius: 8 }, miniTab: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }, miniTabActive: { backgroundColor: COLORS.accent }, miniTabText: { color: COLORS.muted, fontSize: 10, fontWeight: '900' }, miniTabTextActive: { color: 'white' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' }, bottomSheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderColor: COLORS.border, padding: 18, paddingBottom: 30, gap: 12 }, handle: { width: 38, height: 4, borderRadius: 2, backgroundColor: COLORS.border, alignSelf: 'center' }, modalTitle: { color: COLORS.text, fontSize: 16, fontWeight: '900' }, exportGrid: { flexDirection: 'row', gap: 10 }, exportOption: { flex: 1, backgroundColor: COLORS.surface2, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, padding: 14, alignItems: 'center', gap: 6 }, exportActive: { borderColor: COLORS.accent, backgroundColor: 'rgba(124,111,205,0.18)' }, exportIcon: { fontSize: 26 }, exportText: { color: COLORS.muted, fontWeight: '900' }, exportTextActive: { color: COLORS.accent },
 });
