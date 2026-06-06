@@ -41,15 +41,20 @@ export default function ForgotPasswordScreen({ navigation }) {
     if (!emailValido) return;
     setLoading(true);
     try {
-      const result = await requestPasswordResetCode({ email });
+      const emailLower = email.trim().toLowerCase();
+      const result = await requestPasswordResetCode({ email: emailLower });
       setCodigo(['', '', '', '', '', '']);
       const devCodeMsg = !result?.email_sent && result?.dev_code
         ? `\n\nNo se pudo enviar el correo real. Código de desarrollo: ${result.dev_code}`
         : '';
 
+      const mensaje = result?.email_sent || result?.dev_code
+        ? `Enviamos un código de verificación a: ${emailLower}.${devCodeMsg}`
+        : 'Si el correo está registrado, recibirás un código en los próximos minutos.';
+
       Alert.alert(
         'Código enviado',
-        `Si el correo está registrado, recibirás un código en los próximos minutos.${devCodeMsg}`,
+        mensaje,
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
     } catch (e) {
@@ -57,6 +62,34 @@ export default function ForgotPasswordScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  function mostrarErrorCodigo(error) {
+    const mensaje = error?.message || 'No se pudo actualizar la contraseña.';
+    const esErrorCodigo = mensaje.toLowerCase().includes('código');
+
+    if (!esErrorCodigo) {
+      Alert.alert('Error', mensaje);
+      return;
+    }
+
+    Alert.alert(
+      'Error con el código',
+      `${mensaje}\n\nPuedes solicitar un código nuevo sin volver a escribir tu correo.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reenviar código',
+          onPress: () => {
+            setCodigo(['', '', '', '', '', '']);
+            setPass1('');
+            setPass2('');
+            setPaso(1);
+            handleEnviarCodigo();
+          },
+        },
+      ]
+    );
   }
 
   function handleVerificarCodigo() {
@@ -76,7 +109,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
       setDone(true);
     } catch (e) {
-      Alert.alert('Error', e.message || 'No se pudo actualizar la contraseña.');
+      mostrarErrorCodigo(e);
     } finally {
       setLoading(false);
     }
@@ -212,7 +245,7 @@ export default function ForgotPasswordScreen({ navigation }) {
                 { label: 'Mayúsc.', ok: /[A-Z]/.test(pass1) },
                 { label: 'Número', ok: /[0-9]/.test(pass1) },
               ].map(r => (
-                <Text key={r.label} style={[styles.req, { color: r.ok ? '#34d399' : '#f87171' }]}> 
+                <Text key={r.label} style={[styles.req, { color: r.ok ? '#34d399' : '#f87171' }]}>
                   {r.ok ? '✓' : '✗'} {r.label}
                 </Text>
               ))}
@@ -220,7 +253,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           )}
 
           <Text style={styles.label}>Confirmar nueva contraseña</Text>
-          <View style={[styles.passContainer, pass2.length > 0 && { borderColor: passCoincide ? '#34d399' : '#f87171' }]}> 
+          <View style={[styles.passContainer, pass2.length > 0 && { borderColor: passCoincide ? '#34d399' : '#f87171' }]}>
             <TextInput
               style={[styles.input, { flex: 1, borderWidth: 0 }]}
               placeholder="Repite tu contraseña"
