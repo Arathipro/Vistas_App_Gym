@@ -8,10 +8,6 @@ function generarCodigo() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function addMinutes(minutes) {
-  return new Date(Date.now() + minutes * 60 * 1000);
-}
-
 function shouldExposeDevCode(payload = {}) {
   return process.env.NODE_ENV !== 'production' && payload.email_sent !== true;
 }
@@ -33,12 +29,15 @@ function sanitizeUser(row) {
   };
 }
 
-async function insertVerificationCode({ idUsuario = null, emailDestino, codigo, tipo, payload = null, expiraAt }) {
-  await query(
+async function insertVerificationCode({ idUsuario = null, emailDestino, codigo, tipo, payload = null, expiresInMinutes }) {
+  const result = await query(
     `INSERT INTO codigos_verificacion (id_usuario, email_destino, codigo, tipo, payload, expira_at)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [idUsuario, emailDestino, codigo, tipo, payload ? JSON.stringify(payload) : null, expiraAt]
+     VALUES ($1, $2, $3, $4, $5, NOW() + ($6::int * INTERVAL '1 minute'))
+     RETURNING id_codigo, expira_at`,
+    [idUsuario, emailDestino, codigo, tipo, payload ? JSON.stringify(payload) : null, expiresInMinutes]
   );
+
+  return result.rows[0];
 }
 
 async function findValidCode({ email, code, tipo, idUsuario = null }) {
@@ -48,7 +47,7 @@ async function findValidCode({ email, code, tipo, idUsuario = null }) {
 
   const result = await query(
     `SELECT *,
-            expira_at <= (NOW() AT TIME ZONE 'UTC') AS expirado
+            expira_at <= NOW() AS expirado
      FROM codigos_verificacion
      WHERE lower(email_destino) = lower($1)
        AND codigo = $2
@@ -105,14 +104,12 @@ export async function requestRegisterCode(req, res, next) {
 
     const code = generarCodigo();
     const passwordHash = await hashPassword(password);
-    const expiresAt = addMinutes(15);
-
-    await insertVerificationCode({
+    const codeRow = await insertVerificationCode({
       emailDestino: emailLower,
       codigo: code,
       tipo: 'registro',
       payload: { nombre: nombre.trim(), email: emailLower, password_hash: passwordHash },
-      expiraAt: expiresAt,
+      expiresInMinutes: 15,
     });
 
     const emailResult = await sendCodeSafely({ to: emailLower, code, tipo: 'registro' });
@@ -120,7 +117,7 @@ export async function requestRegisterCode(req, res, next) {
       email: emailLower,
       tipo: 'registro',
       email_sent: emailResult.ok,
-      expira_at: expiresAt,
+      expira_at: codeRow.expira_at,
     });
 
     return res.json(withDevCode({ ok: true, message: 'Código de verificación generado.', email_sent: emailResult.ok }, code));
@@ -196,14 +193,12 @@ export async function requestPasswordResetCode(req, res, next) {
 
     const user = userResult.rows[0];
     const code = generarCodigo();
-    const expiresAt = addMinutes(10);
-
-    await insertVerificationCode({
+    const codeRow = await insertVerificationCode({
       idUsuario: user.id_usuario,
       emailDestino: emailLower,
       codigo: code,
       tipo: 'reset_password',
-      expiraAt: expiresAt,
+      expiresInMinutes: 10,
     });
 
     const emailResult = await sendCodeSafely({ to: emailLower, code, tipo: 'reset_password' });
@@ -212,7 +207,7 @@ export async function requestPasswordResetCode(req, res, next) {
       email: emailLower,
       tipo: 'reset_password',
       email_sent: emailResult.ok,
-      expira_at: expiresAt,
+      expira_at: codeRow.expira_at,
     });
 
     return res.json(withDevCode({ ok: true, message: 'Código de recuperación generado.', email_sent: emailResult.ok }, code));
@@ -293,14 +288,12 @@ export async function requestEmailChangeCode(req, res, next) {
     log.info('RF07 - Solicitud de cambio de correo', { id_usuario: idUsuario, email_actual: user.email });
 
     const code = generarCodigo();
-    const expiresAt = addMinutes(15);
-
-    await insertVerificationCode({
+    const codeRow = await insertVerificationCode({
       idUsuario,
       emailDestino: user.email,
       codigo: code,
       tipo: 'cambio_email',
-      expiraAt: expiresAt,
+      expiresInMinutes: 15,
     });
 
     const emailResult = await sendCodeSafely({ to: user.email, code, tipo: 'cambio_email' });
@@ -309,7 +302,7 @@ export async function requestEmailChangeCode(req, res, next) {
       email: user.email,
       tipo: 'cambio_email',
       email_sent: emailResult.ok,
-      expira_at: expiresAt,
+      expira_at: codeRow.expira_at,
     });
 
     return res.json(withDevCode({ ok: true, message: 'Código de cambio de correo generado.', email_sent: emailResult.ok }, code));
