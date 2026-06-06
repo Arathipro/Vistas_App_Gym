@@ -22,55 +22,20 @@ export const EJERCICIOS = {
 };
 
 export const SESIONES = [
-  {
-    id: 1,
-    fecha: 'Mar 24, 2026',
-    hora: '18:20',
-    dur: '52m',
-    vol: '3,480 kg',
-    e: [
-      { n: 'Press de banca', ic: '🏋️', s: [[1, 70, 8, '42s'], [2, 75, 7, '45s'], [3, 72, 8, '44s']] },
-      { n: 'Press militar', ic: '🎯', s: [[1, 35, 10, '35s'], [2, 35, 9, '36s']] },
-    ],
-  },
-  {
-    id: 2,
-    fecha: 'Mar 18, 2026',
-    hora: '17:40',
-    dur: '58m',
-    vol: '4,120 kg',
-    e: [
-      { n: 'Sentadilla', ic: '🦵', s: [[1, 90, 8, '48s'], [2, 95, 7, '52s'], [3, 100, 6, '54s']] },
-      { n: 'Peso muerto', ic: '💪', s: [[1, 108, 5, '42s'], [2, 112, 4, '44s']] },
-    ],
-  },
-  {
-    id: 3,
-    fecha: 'Mar 10, 2026',
-    hora: '19:05',
-    dur: '49m',
-    vol: '3,020 kg',
-    e: [
-      { n: 'Press de banca', ic: '🏋️', s: [[1, 65, 9, '40s'], [2, 70, 8, '43s']] },
-      { n: 'Jalón al pecho', ic: '🔝', s: [[1, 55, 12, '36s'], [2, 60, 10, '38s']] },
-    ],
-  },
-  {
-    id: 4,
-    fecha: 'Feb 28, 2026',
-    hora: '18:10',
-    dur: '45m',
-    vol: '2,880 kg',
-    e: [{ n: 'Press militar', ic: '🎯', s: [[1, 30, 11, '34s'], [2, 32, 10, '36s']] }],
-  },
-  {
-    id: 5,
-    fecha: 'Feb 14, 2026',
-    hora: '17:50',
-    dur: '55m',
-    vol: '3,240 kg',
-    e: [{ n: 'Press de banca', ic: '🏋️', s: [[1, 60, 9, '39s'], [2, 65, 8, '41s']] }],
-  },
+  { id: 1, fecha: 'Mar 24, 2026', hora: '18:20', dur: '52m', vol: '3,480 kg', e: [
+    { n: 'Press de banca', ic: '🏋️', s: [[1, 70, 8, '42s'], [2, 75, 7, '45s'], [3, 72, 8, '44s']] },
+    { n: 'Press militar', ic: '🎯', s: [[1, 35, 10, '35s'], [2, 35, 9, '36s']] },
+  ] },
+  { id: 2, fecha: 'Mar 18, 2026', hora: '17:40', dur: '58m', vol: '4,120 kg', e: [
+    { n: 'Sentadilla', ic: '🦵', s: [[1, 90, 8, '48s'], [2, 95, 7, '52s'], [3, 100, 6, '54s']] },
+    { n: 'Peso muerto', ic: '💪', s: [[1, 108, 5, '42s'], [2, 112, 4, '44s']] },
+  ] },
+  { id: 3, fecha: 'Mar 10, 2026', hora: '19:05', dur: '49m', vol: '3,020 kg', e: [
+    { n: 'Press de banca', ic: '🏋️', s: [[1, 65, 9, '40s'], [2, 70, 8, '43s']] },
+    { n: 'Jalón al pecho', ic: '🔝', s: [[1, 55, 12, '36s'], [2, 60, 10, '38s']] },
+  ] },
+  { id: 4, fecha: 'Feb 28, 2026', hora: '18:10', dur: '45m', vol: '2,880 kg', e: [{ n: 'Press militar', ic: '🎯', s: [[1, 30, 11, '34s'], [2, 32, 10, '36s']] }] },
+  { id: 5, fecha: 'Feb 14, 2026', hora: '17:50', dur: '55m', vol: '3,240 kg', e: [{ n: 'Press de banca', ic: '🏋️', s: [[1, 60, 9, '39s'], [2, 65, 8, '41s']] }] },
 ];
 
 export const MEDIDAS = [
@@ -108,10 +73,42 @@ export function topGruposMedida() {
   ];
 }
 
+function buildWeeks(months) {
+  const names = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const base = [3, 2, 3, 3];
+  return Array.from({ length: months }).flatMap((_, mi) =>
+    base.map((dias, wi) => ({ label: `${names[mi]} S${wi + 1}`, dias }))
+  );
+}
+
 export const SEMANAS = {
-  '1m': [3, 2, 3, 3],
-  '3m': [3, 2, 3, 3, 1, 3, 3, 2, 3],
-  '6m': [2, 3, 1, 3, 2, 3, 3, 2, 3, 3, 1, 3],
-  '1a': [2, 3, 1, 3, 2, 3, 3, 2, 3, 3, 1, 3, 2, 3, 3, 2],
-  todo: [2, 3, 1, 3, 2, 3, 3, 2, 3, 3, 1, 3, 2, 3, 3, 2, 3, 3, 1, 3],
+  '1m': buildWeeks(1),
+  '3m': buildWeeks(3),
+  '6m': buildWeeks(6),
+  '1a': buildWeeks(12),
+  todo: buildWeeks(12),
+};
+
+export const EXPORT_CONTENT = {
+  resumen: [
+    'Medidas corporales base y actuales',
+    'Cambios por zona corporal',
+    'Entrenamientos recientes',
+    'Comparación entre fechas',
+    'Resumen general de progreso',
+  ],
+  ejercicio: [
+    'Ejercicio seleccionado y grupo muscular',
+    'Evolución de cargas',
+    'Series ejecutadas',
+    'Repeticiones y peso por serie',
+    'Tiempo de ejecución y promedio',
+  ],
+  consistencia: [
+    'Racha actual y mejor racha',
+    'Adherencia al objetivo semanal',
+    'Frecuencia semanal por mes',
+    'Top ejercicios por progreso en peso',
+    'Top grupos por pesos y medidas',
+  ],
 };
