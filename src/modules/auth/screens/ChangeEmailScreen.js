@@ -46,7 +46,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
 
       Alert.alert(
         'Código enviado',
-        `Enviamos un código para verificar tu correo actual: ${currentEmail}.${devCodeMsg}`,
+        `Enviamos un código de verificación a: ${currentEmail}.${devCodeMsg}`,
         [{ text: 'Entendido', onPress: () => setPaso(1) }]
       );
     } catch (error) {
@@ -54,6 +54,32 @@ export default function ChangeEmailScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  function mostrarErrorCodigo(error) {
+    const mensaje = error?.message || 'No se pudo actualizar el correo. Intenta de nuevo.';
+    const esErrorCodigo = mensaje.toLowerCase().includes('código');
+
+    if (!esErrorCodigo) {
+      Alert.alert('Error', mensaje);
+      return;
+    }
+
+    Alert.alert(
+      'Error con el código',
+      `${mensaje}\n\nPuedes solicitar un código nuevo sin volver a iniciar el proceso.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reenviar código',
+          onPress: () => {
+            setCodigo(['', '', '', '', '', '']);
+            setPaso(1);
+            handleEnviarCodigo();
+          },
+        },
+      ]
+    );
   }
 
   function handleVerificarCodigo() {
@@ -90,7 +116,7 @@ export default function ChangeEmailScreen({ navigation, route }) {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', error.message || 'No se pudo actualizar el correo. Intenta de nuevo.');
+      mostrarErrorCodigo(error);
     } finally {
       setLoading(false);
     }
