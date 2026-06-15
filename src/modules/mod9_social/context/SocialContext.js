@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import {
+  GROUP_CHALLENGE_TYPES,
   PRIVACY_OPTIONS,
   SOCIAL_GROUPS,
   SOCIAL_NOTIFICATIONS,
@@ -7,6 +8,22 @@ import {
 } from '../data/socialMock';
 
 const SocialContext = createContext(null);
+
+function construirReto(config = {}) {
+  const tipo = GROUP_CHALLENGE_TYPES.find(item => item.id === config.tipo) || GROUP_CHALLENGE_TYPES[0];
+  const meta = Math.max(1, Number(config.meta) || tipo.defaultGoal);
+  const periodo = tipo.periods.includes(config.periodo) ? config.periodo : tipo.periods[0];
+
+  return {
+    tipo: tipo.id,
+    icon: tipo.icon,
+    label: tipo.label,
+    meta,
+    unit: tipo.unit,
+    periodo,
+    source: tipo.source,
+  };
+}
 
 export function SocialProvider({ children }) {
   const [usuarios, setUsuarios] = useState(SOCIAL_USERS);
@@ -90,44 +107,83 @@ export function SocialProvider({ children }) {
     if (user) addFeedbackNotification('Amistad eliminada', `Ya no compartes métricas con ${user.nombre}.`, '🔒');
   }
 
-  function crearGrupo(nombre, descripcion) {
+  function crearGrupo(nombre, descripcion, retoConfig) {
+    const reto = construirReto(retoConfig);
     const nuevo = {
       id: Date.now(),
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || 'Grupo privado creado por ti.',
       miembros: 1,
       joined: true,
+      admin: true,
+      creador: 'Tú',
       color: '#ffa032',
-      icon: '✨',
+      icon: reto.icon,
       meta: 'Creado ahora',
-      objetivo: 'Define una meta con tus amigos',
+      reto,
       progreso: 0,
       miembrosPreview: ['YO'],
-      actividad: ['Grupo creado · invita amigos desde la lista'],
+      ranking: [{ id: 0, nombre: 'Tú', iniciales: 'YO', valor: 0 }],
+      actividad: [`Reto creado: ${reto.label} · ${reto.meta} ${reto.unit} · ${reto.periodo}`],
     };
     setGrupos(prev => [nuevo, ...prev]);
-    addFeedbackNotification('Grupo creado', `${nuevo.nombre} ya está disponible para invitar amigos.`, '👥', 'grupo');
+    addFeedbackNotification('Grupo creado', `${nuevo.nombre} inicia con el reto “${reto.label}”.`, '👥', 'grupo');
     return nuevo.id;
+  }
+
+  function actualizarRetoGrupo(id, retoConfig) {
+    const reto = construirReto(retoConfig);
+    const group = grupos.find(item => item.id === id);
+    if (!group?.admin) return;
+
+    setGrupos(prev => prev.map(item => (
+      item.id === id
+        ? {
+            ...item,
+            icon: reto.icon,
+            reto,
+            progreso: 0,
+            ranking: item.ranking.map(member => ({ ...member, valor: 0 })),
+            actividad: [`El administrador actualizó el reto a ${reto.label}: ${reto.meta} ${reto.unit} · ${reto.periodo}`, ...item.actividad],
+          }
+        : item
+    )));
+    addFeedbackNotification('Reto actualizado', `${group.nombre} ahora compite en “${reto.label}”.`, '🎯', 'reto');
   }
 
   function unirseGrupo(id) {
     const group = grupos.find(item => item.id === id);
     setGrupos(prev => prev.map(item => (
       item.id === id
-        ? { ...item, joined: true, miembros: item.miembros + 1, miembrosPreview: ['YO', ...item.miembrosPreview.slice(0, 3)] }
+        ? {
+            ...item,
+            joined: true,
+            miembros: item.miembros + 1,
+            miembrosPreview: ['YO', ...item.miembrosPreview.slice(0, 3)],
+            ranking: item.ranking.some(member => member.id === 0)
+              ? item.ranking
+              : [...item.ranking, { id: 0, nombre: 'Tú', iniciales: 'YO', valor: 0 }],
+          }
         : item
     )));
-    if (group) addFeedbackNotification('Te uniste al grupo', `Ahora formas parte de ${group.nombre}.`, group.icon, 'grupo');
+    if (group) addFeedbackNotification('Te uniste al grupo', `Ahora formas parte de ${group.nombre} y su reto ${group.reto.label}.`, group.icon, 'grupo');
   }
 
   function salirGrupo(id) {
     const group = grupos.find(item => item.id === id);
+    if (group?.admin) return;
     setGrupos(prev => prev.map(item => (
       item.id === id
-        ? { ...item, joined: false, miembros: Math.max(0, item.miembros - 1), miembrosPreview: item.miembrosPreview.filter(member => member !== 'YO') }
+        ? {
+            ...item,
+            joined: false,
+            miembros: Math.max(0, item.miembros - 1),
+            miembrosPreview: item.miembrosPreview.filter(member => member !== 'YO'),
+            ranking: item.ranking.filter(member => member.id !== 0),
+          }
         : item
     )));
-    if (group) addFeedbackNotification('Saliste del grupo', `Dejaste de recibir actividad de ${group.nombre}.`, '↩️', 'grupo');
+    if (group) addFeedbackNotification('Saliste del grupo', `Dejaste de recibir avisos y participar en el ranking de ${group.nombre}.`, '↩️', 'grupo');
   }
 
   function notificarEntrenamiento(id) {
@@ -173,6 +229,7 @@ export function SocialProvider({ children }) {
       rechazarSolicitud,
       eliminarAmistad,
       crearGrupo,
+      actualizarRetoGrupo,
       unirseGrupo,
       salirGrupo,
       notificarEntrenamiento,
