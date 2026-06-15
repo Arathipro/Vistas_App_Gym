@@ -1,150 +1,210 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSocial } from '../context/SocialContext';
+import { C, s } from '../styles/socialStyles';
 
-const USUARIOS = [
-  { id: 1, nombre: 'María García', codigo: 'MAR-104', meta: 'Racha 12 días · Push hoy', estado: 'amigo' },
-  { id: 2, nombre: 'Luis Torres', codigo: 'LUI-228', meta: '28 sesiones este mes', estado: 'amigo' },
-  { id: 3, nombre: 'Ana López', codigo: 'ANA-512', meta: 'Objetivo: tonificación', estado: 'pendiente' },
-  { id: 4, nombre: 'Juan Pérez', codigo: 'JUA-887', meta: 'Solicitó conectar contigo', estado: 'recibida' },
-  { id: 5, nombre: 'Sofía Ramos', codigo: 'SOF-341', meta: 'Gimnasio DPUAS', estado: 'buscar' },
-];
+const TABS = ['Todos', 'Amigos', 'Solicitudes', 'Buscar'];
+
+function estadoConfig(estado) {
+  if (estado === 'amigo') return { label: 'Amigo', color: C.green, bg: 'rgba(52,211,153,0.12)' };
+  if (estado === 'recibida') return { label: 'Solicitud recibida', color: C.orange, bg: 'rgba(255,160,50,0.12)' };
+  if (estado === 'enviada') return { label: 'Solicitud enviada', color: C.teal, bg: 'rgba(94,234,212,0.10)' };
+  return { label: 'Disponible', color: C.sub, bg: C.surface };
+}
 
 export default function AmigosScreen({ navigation }) {
+  const {
+    usuarios,
+    amigos,
+    solicitudesRecibidas,
+    solicitudesEnviadas,
+    enviarSolicitud,
+    cancelarSolicitud,
+    aceptarSolicitud,
+    rechazarSolicitud,
+    eliminarAmistad,
+  } = useSocial();
   const [busqueda, setBusqueda] = useState('');
-  const [usuarios, setUsuarios] = useState(USUARIOS);
   const [tab, setTab] = useState('Todos');
 
-  const filtrados = useMemo(() => usuarios.filter(u => {
-    const matchText = !busqueda || `${u.nombre} ${u.codigo}`.toLowerCase().includes(busqueda.toLowerCase());
-    const matchTab = tab === 'Todos' || (tab === 'Amigos' && u.estado === 'amigo') || (tab === 'Solicitudes' && ['pendiente', 'recibida'].includes(u.estado)) || (tab === 'Buscar' && u.estado === 'buscar');
-    return matchText && matchTab;
+  const filtrados = useMemo(() => usuarios.filter(user => {
+    const texto = `${user.nombre} ${user.codigo}`.toLowerCase();
+    const coincide = !busqueda.trim() || texto.includes(busqueda.trim().toLowerCase());
+    const coincideTab = tab === 'Todos'
+      || (tab === 'Amigos' && user.estado === 'amigo')
+      || (tab === 'Solicitudes' && ['recibida', 'enviada'].includes(user.estado))
+      || (tab === 'Buscar' && user.estado === 'disponible');
+    return coincide && coincideTab;
   }), [usuarios, busqueda, tab]);
 
-  function enviar(id) {
-    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, estado: 'pendiente', meta: 'Solicitud enviada · pendiente' } : u));
+  function confirmarCancelacion(user) {
+    Alert.alert(
+      'Cancelar solicitud',
+      `¿Quieres cancelar la solicitud enviada a ${user.nombre}?`,
+      [
+        { text: 'Conservar', style: 'cancel' },
+        { text: 'Cancelar solicitud', style: 'destructive', onPress: () => cancelarSolicitud(user.id) },
+      ],
+    );
   }
 
-  function aceptar(id) {
-    setUsuarios(prev => prev.map(u => u.id === id ? { ...u, estado: 'amigo', meta: 'Amistad aceptada · ya pueden comparar progreso' } : u));
-  }
-
-  function rechazar(id) {
-    setUsuarios(prev => prev.filter(u => u.id !== id));
-  }
-
-  function cancelar(id) {
-    Alert.alert('Cancelar solicitud', '¿Eliminar esta solicitud pendiente?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí, cancelar', style: 'destructive', onPress: () => setUsuarios(prev => prev.map(u => u.id === id ? { ...u, estado: 'buscar', meta: 'Solicitud cancelada · puedes reenviar' } : u)) },
-    ]);
-  }
-
-  function eliminar(id) {
-    Alert.alert('Eliminar amistad', 'Ambos perderán acceso a comparación y ranking entre sí.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => setUsuarios(prev => prev.map(u => u.id === id ? { ...u, estado: 'buscar', meta: 'Amistad eliminada · puedes reenviar solicitud' } : u)) },
-    ]);
+  function confirmarEliminacion(user) {
+    Alert.alert(
+      'Eliminar amistad',
+      `Tú y ${user.nombre} perderán acceso a comparaciones y rankings entre sí.`,
+      [
+        { text: 'Conservar amistad', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => eliminarAmistad(user.id) },
+      ],
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Social')} style={styles.backBtn}><Text style={styles.backText}>←</Text></TouchableOpacity>
-        <Text style={styles.headerTitle}>Amigos</Text>
-        <View style={{ width: 34 }} />
+    <View style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.navigate('Social')} style={s.backBtn}>
+          <Text style={s.backText}>←</Text>
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Amigos</Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Text style={styles.badge}>RF58–RF66</Text>
-          <Text style={styles.heroTitle}>Conexiones y solicitudes</Text>
-          <Text style={styles.heroSub}>Busca por nombre o código, envía solicitudes, acepta/rechaza y elimina amistades.</Text>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={s.hero}>
+          <Text style={s.heroBadge}>RF58–RF66</Text>
+          <Text style={s.heroTitle}>Conexiones y solicitudes</Text>
+          <Text style={s.heroSub}>Busca por nombre o código único, administra solicitudes y controla tus amistades.</Text>
+        </View>
+
+        <View style={s.statsRow}>
+          <View style={s.statCard}>
+            <Text style={s.statValue}>{amigos.length}</Text>
+            <Text style={s.statLabel}>AMIGOS</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: C.orange }]}>{solicitudesRecibidas.length}</Text>
+            <Text style={s.statLabel}>RECIBIDAS</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: C.teal }]}>{solicitudesEnviadas.length}</Text>
+            <Text style={s.statLabel}>ENVIADAS</Text>
+          </View>
         </View>
 
         <TextInput
-          style={styles.input}
-          placeholder="Buscar usuario o código de amigo..."
-          placeholderTextColor="#777"
+          style={s.input}
+          placeholder="Buscar nombre o código de amigo..."
+          placeholderTextColor={C.muted}
           value={busqueda}
           onChangeText={setBusqueda}
+          autoCapitalize="none"
         />
 
-        <View style={styles.chipsRow}>
-          {['Todos', 'Amigos', 'Solicitudes', 'Buscar'].map(t => (
-            <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.chip, tab === t && styles.chipActive]}>
-              <Text style={[styles.chipText, tab === t && styles.chipTextActive]}>{t}</Text>
+        <View style={s.chips}>
+          {TABS.map(item => (
+            <TouchableOpacity key={item} onPress={() => setTab(item)} style={[s.chip, tab === item && s.chipOn]}>
+              <Text style={[s.chipText, tab === item && s.chipTextOn]}>{item}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {filtrados.map(u => (
-          <View key={u.id} style={styles.userCard}>
-            <View style={styles.avatar}><Text style={styles.avatarText}>{u.nombre.split(' ').map(n => n[0]).join('').slice(0, 2)}</Text></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.userName}>{u.nombre}</Text>
-              <Text style={styles.userMeta}>{u.codigo} · {u.meta}</Text>
-              <View style={styles.statusWrap}>
-                <Text style={[styles.status, u.estado === 'amigo' && styles.statusOk, u.estado === 'recibida' && styles.statusWarn]}>
-                  {u.estado === 'amigo' ? 'Amigo' : u.estado === 'pendiente' ? 'Pendiente' : u.estado === 'recibida' ? 'Solicitud recibida' : 'Disponible'}
-                </Text>
+        {filtrados.map(user => {
+          const status = estadoConfig(user.estado);
+          return (
+            <View key={user.id} style={s.userCard}>
+              <View style={s.userTop}>
+                <View style={{ position: 'relative' }}>
+                  <View style={[s.avatar, user.estado === 'disponible' && { backgroundColor: C.soft }]}>
+                    <Text style={s.avatarText}>{user.iniciales}</Text>
+                  </View>
+                  {user.online ? <View style={s.onlineDot} /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.userName}>{user.nombre}</Text>
+                  <Text style={s.userMeta}>{user.codigo} · {user.actividad}</Text>
+                  <View style={[s.statusPill, { backgroundColor: status.bg }]}>
+                    <Text style={[s.statusText, { color: status.color }]}>{status.label}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {user.estado === 'amigo' && user.comparteProgreso ? (
+                <View style={{ marginTop: 12, paddingTop: 11, borderTopWidth: 1, borderTopColor: C.border }}>
+                  <View style={[s.row, { justifyContent: 'space-between', marginBottom: 7 }]}>
+                    <Text style={{ color: C.sub, fontSize: 10, fontWeight: '800' }}>Progreso semanal compartido</Text>
+                    <Text style={{ color: C.teal, fontSize: 10, fontWeight: '900' }}>{user.progreso}%</Text>
+                  </View>
+                  <View style={s.progressTrack}>
+                    <View style={[s.progressFill, { width: `${user.progreso}%`, backgroundColor: C.teal }]} />
+                  </View>
+                  <View style={[s.row, { gap: 14, marginTop: 8 }]}>
+                    <Text style={{ color: C.sub, fontSize: 10 }}>🔥 {user.racha} días</Text>
+                    <Text style={{ color: C.sub, fontSize: 10 }}>🏋️ {user.sesionesSemana} sesiones</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('Ranking')}>
+                      <Text style={{ color: C.purple, fontSize: 10, fontWeight: '900' }}>Comparar →</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
+
+              {user.estado === 'amigo' && !user.comparteProgreso ? (
+                <View style={{ marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border }}>
+                  <Text style={{ color: C.muted, fontSize: 10 }}>🔒 Este usuario no comparte métricas de progreso.</Text>
+                </View>
+              ) : null}
+
+              <View style={s.actionsRow}>
+                {user.estado === 'disponible' ? (
+                  <TouchableOpacity style={[s.primaryBtn, { flex: 1 }]} onPress={() => enviarSolicitud(user.id)}>
+                    <Text style={s.primaryBtnText}>＋ Agregar amigo</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {user.estado === 'enviada' ? (
+                  <>
+                    <View style={[s.secondaryBtn, { flex: 1 }]}>
+                      <Text style={[s.secondaryBtnText, { color: C.teal }]}>⏳ Pendiente</Text>
+                    </View>
+                    <TouchableOpacity style={[s.secondaryBtn, s.dangerBtn]} onPress={() => confirmarCancelacion(user)}>
+                      <Text style={[s.secondaryBtnText, s.dangerBtnText]}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : null}
+
+                {user.estado === 'recibida' ? (
+                  <>
+                    <TouchableOpacity style={[s.primaryBtn, s.successBtn, { flex: 1 }]} onPress={() => aceptarSolicitud(user.id)}>
+                      <Text style={[s.primaryBtnText, s.successBtnText]}>✓ Aceptar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.secondaryBtn, s.dangerBtn, { flex: 1 }]} onPress={() => rechazarSolicitud(user.id)}>
+                      <Text style={[s.secondaryBtnText, s.dangerBtnText]}>✕ Rechazar</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : null}
+
+                {user.estado === 'amigo' ? (
+                  <>
+                    <TouchableOpacity style={[s.secondaryBtn, { flex: 1 }]} onPress={() => navigation.navigate('Ranking')}>
+                      <Text style={s.secondaryBtnText}>📊 Ver comparativa</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.secondaryBtn, s.dangerBtn]} onPress={() => confirmarEliminacion(user)}>
+                      <Text style={[s.secondaryBtnText, s.dangerBtnText]}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : null}
               </View>
             </View>
-            <View style={styles.actions}>
-              {u.estado === 'buscar' && <TouchableOpacity onPress={() => enviar(u.id)} style={styles.smallPrimary}><Text style={styles.smallPrimaryText}>Agregar</Text></TouchableOpacity>}
-              {u.estado === 'pendiente' && <TouchableOpacity onPress={() => cancelar(u.id)} style={styles.smallDanger}><Text style={styles.smallDangerText}>Cancelar</Text></TouchableOpacity>}
-              {u.estado === 'recibida' && (
-                <>
-                  <TouchableOpacity onPress={() => aceptar(u.id)} style={styles.iconAction}><Text>✓</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => rechazar(u.id)} style={styles.iconDanger}><Text>✕</Text></TouchableOpacity>
-                </>
-              )}
-              {u.estado === 'amigo' && <TouchableOpacity onPress={() => eliminar(u.id)} style={styles.iconDanger}><Text>🗑</Text></TouchableOpacity>}
-            </View>
-          </View>
-        ))}
+          );
+        })}
 
-        {filtrados.length === 0 && (
-          <View style={styles.empty}><Text style={styles.emptyIcon}>🔍</Text><Text style={styles.emptyText}>Sin resultados para esta búsqueda.</Text></View>
-        )}
+        {filtrados.length === 0 ? (
+          <View style={s.empty}>
+            <Text style={s.emptyIcon}>🔍</Text>
+            <Text style={s.emptyText}>No encontramos usuarios en esta sección.</Text>
+            <Text style={{ color: C.muted, fontSize: 10, marginTop: 5 }}>Prueba otro nombre, código o filtro.</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#13132a' },
-  header: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a35', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#2a2a35', alignItems: 'center', justifyContent: 'center' },
-  backText: { color: 'white', fontSize: 22, fontWeight: '700' },
-  headerTitle: { color: 'white', fontSize: 18, fontWeight: '800' },
-  content: { padding: 20, paddingBottom: 42 },
-  heroCard: { backgroundColor: '#2a2a35', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#393948', marginBottom: 14 },
-  badge: { color: '#5eead4', fontSize: 11, fontWeight: '800', marginBottom: 8 },
-  heroTitle: { color: 'white', fontSize: 21, fontWeight: '900' },
-  heroSub: { color: '#9a9aa8', fontSize: 12, lineHeight: 18, marginTop: 5 },
-  input: { backgroundColor: '#2a2a35', borderColor: '#393948', borderWidth: 1, borderRadius: 13, color: 'white', padding: 14, marginBottom: 12, fontSize: 13 },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 10, backgroundColor: '#24242f', borderWidth: 1, borderColor: '#333' },
-  chipActive: { backgroundColor: 'rgba(124,111,205,0.22)', borderColor: '#7c6fcd' },
-  chipText: { color: '#888', fontSize: 11, fontWeight: '800' },
-  chipTextActive: { color: 'white' },
-  userCard: { backgroundColor: '#2a2a35', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#333', marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#7c6fcd', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: 'white', fontWeight: '900', fontSize: 14 },
-  userName: { color: 'white', fontSize: 14, fontWeight: '900' },
-  userMeta: { color: '#888', fontSize: 11, marginTop: 3, lineHeight: 16 },
-  statusWrap: { flexDirection: 'row', marginTop: 7 },
-  status: { color: '#999', fontSize: 10, fontWeight: '900', backgroundColor: '#24242f', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, overflow: 'hidden' },
-  statusOk: { color: '#34d399', backgroundColor: 'rgba(52,211,153,0.12)' },
-  statusWarn: { color: '#ffa032', backgroundColor: 'rgba(255,160,50,0.12)' },
-  actions: { alignItems: 'flex-end', gap: 6 },
-  smallPrimary: { backgroundColor: '#7c6fcd', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 7 },
-  smallPrimaryText: { color: 'white', fontSize: 11, fontWeight: '900' },
-  smallDanger: { backgroundColor: 'rgba(248,113,113,0.12)', borderRadius: 9, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)' },
-  smallDangerText: { color: '#f87171', fontSize: 11, fontWeight: '900' },
-  iconAction: { width: 32, height: 32, borderRadius: 9, backgroundColor: 'rgba(52,211,153,0.16)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(52,211,153,0.35)' },
-  iconDanger: { width: 32, height: 32, borderRadius: 9, backgroundColor: 'rgba(248,113,113,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)' },
-  empty: { alignItems: 'center', paddingVertical: 28 },
-  emptyIcon: { fontSize: 34, marginBottom: 8 },
-  emptyText: { color: '#888', fontSize: 13 },
-});
