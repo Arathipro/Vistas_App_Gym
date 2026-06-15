@@ -107,12 +107,13 @@ export function SocialProvider({ children }) {
     if (user) addFeedbackNotification('Amistad eliminada', `Ya no compartes métricas con ${user.nombre}.`, '🔒');
   }
 
-  function crearGrupo(nombre, descripcion, retoConfig) {
+  function crearGrupo(nombre, descripcion, reglas, retoConfig) {
     const reto = construirReto(retoConfig);
     const nuevo = {
       id: Date.now(),
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || 'Grupo privado creado por ti.',
+      reglas: reglas.trim() || 'Sin reglas adicionales definidas.',
       miembros: 1,
       joined: true,
       admin: true,
@@ -129,6 +130,28 @@ export function SocialProvider({ children }) {
     setGrupos(prev => [nuevo, ...prev]);
     addFeedbackNotification('Grupo creado', `${nuevo.nombre} inicia con el reto “${reto.label}”.`, '👥', 'grupo');
     return nuevo.id;
+  }
+
+  function actualizarDatosGrupo(id, datos) {
+    const group = grupos.find(item => item.id === id);
+    if (!group?.admin) return false;
+
+    const nombre = datos.nombre?.trim();
+    if (!nombre) return false;
+
+    setGrupos(prev => prev.map(item => (
+      item.id === id
+        ? {
+            ...item,
+            nombre,
+            descripcion: datos.descripcion?.trim() || 'Sin descripción.',
+            reglas: datos.reglas?.trim() || 'Sin reglas adicionales definidas.',
+            actividad: ['El administrador actualizó la información y reglas del grupo', ...item.actividad],
+          }
+        : item
+    )));
+    addFeedbackNotification('Información del grupo actualizada', `Se actualizaron el nombre, descripción o reglas de ${nombre}.`, '✏️', 'grupo');
+    return true;
   }
 
   function actualizarRetoGrupo(id, retoConfig) {
@@ -229,6 +252,7 @@ export function SocialProvider({ children }) {
       rechazarSolicitud,
       eliminarAmistad,
       crearGrupo,
+      actualizarDatosGrupo,
       actualizarRetoGrupo,
       unirseGrupo,
       salirGrupo,
