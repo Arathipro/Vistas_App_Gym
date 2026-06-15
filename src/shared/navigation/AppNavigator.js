@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppSessionProvider } from '../../context/AppSessionContext';
 import { RutinasProvider } from '../../context/RutinasContext';
 import { ScannerDemoProvider } from '../../context/ScannerDemoContext';
+import { SocialProvider } from '../../modules/mod9_social/context/SocialContext';
 
 // ── Módulo 1: Auth (100% funcional offline) ──────────────────────────────────
 import SplashScreen          from '../../modules/auth/screens/SplashScreen';
@@ -66,50 +67,52 @@ export default function AppNavigator() {
     <AppSessionProvider>
       <RutinasProvider>
         <ScannerDemoProvider>
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Splash" component={SplashScreen} />
-              <Stack.Screen name="Register" component={RegisterScreen} />
-              <Stack.Screen name="Login" component={LoginScreen} />
-              <Stack.Screen name="Survey" component={SurveyScreen} />
-              <Stack.Screen name="Home" component={HomeScreen} />
-              <Stack.Screen name="Profile" component={ProfileScreen} />
-              <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-              <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+          <SocialProvider>
+            <NavigationContainer>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Splash" component={SplashScreen} />
+                <Stack.Screen name="Register" component={RegisterScreen} />
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Survey" component={SurveyScreen} />
+                <Stack.Screen name="Home" component={HomeScreen} />
+                <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
 
-              <Stack.Screen name="Medidas" component={MedidasScreen} />
-              <Stack.Screen name="MedidasReg" component={MedidasRegScreen} />
-              <Stack.Screen name="MedidasHist" component={MedidasHistScreen} />
+                <Stack.Screen name="Medidas" component={MedidasScreen} />
+                <Stack.Screen name="MedidasReg" component={MedidasRegScreen} />
+                <Stack.Screen name="MedidasHist" component={MedidasHistScreen} />
 
-              <Stack.Screen name="Rutinas" component={RutinasScreen} />
-              <Stack.Screen name="CrearRutina" component={CrearRutinaScreen} />
-              <Stack.Screen name="RutinaDetalle" component={RutinaDetalleScreen} />
-              <Stack.Screen name="EditarRutina" component={EditarRutinaScreen} />
-              <Stack.Screen name="DiaRutina" component={DiaRutinaScreen} />
-              <Stack.Screen name="Ejercicios" component={EjerciciosScreen} />
-              <Stack.Screen name="EjercicioDet" component={EjercicioDetScreen} />
+                <Stack.Screen name="Rutinas" component={RutinasScreen} />
+                <Stack.Screen name="CrearRutina" component={CrearRutinaScreen} />
+                <Stack.Screen name="RutinaDetalle" component={RutinaDetalleScreen} />
+                <Stack.Screen name="EditarRutina" component={EditarRutinaScreen} />
+                <Stack.Screen name="DiaRutina" component={DiaRutinaScreen} />
+                <Stack.Screen name="Ejercicios" component={EjerciciosScreen} />
+                <Stack.Screen name="EjercicioDet" component={EjercicioDetScreen} />
 
-              <Stack.Screen name="PreSesion" component={PreSesionScreen} />
-              <Stack.Screen name="SesionActiva" component={SesionActivaScreen} />
+                <Stack.Screen name="PreSesion" component={PreSesionScreen} />
+                <Stack.Screen name="SesionActiva" component={SesionActivaScreen} />
 
-              <Stack.Screen name="Chat" component={ChatScreen} />
-              <Stack.Screen name="ScannerGym" component={ScannerGymScreen} />
-              <Stack.Screen name="ScannerResultGym" component={ScannerResultGymScreen} />
-              <Stack.Screen name="CatalogoGym" component={CatalogoGymScreen} />
-              <Stack.Screen name="ScannerFood" component={ScannerFoodScreen} />
-              <Stack.Screen name="ScannerResultFood" component={ScannerResultFoodScreen} />
-              <Stack.Screen name="HistorialFood" component={HistorialFoodScreen} />
-              <Stack.Screen name="Progreso" component={ProgresoScreen} />
-              <Stack.Screen name="HistorialSesiones" component={HistorialSesionesScreen} />
-              <Stack.Screen name="Social" component={SocialScreen} />
-              <Stack.Screen name="Amigos" component={AmigosScreen} />
-              <Stack.Screen name="Grupos" component={GruposScreen} />
-              <Stack.Screen name="Notificaciones" component={NotificacionesScreen} />
-              <Stack.Screen name="Ranking" component={RankingScreen} />
-              <Stack.Screen name="Privacidad" component={PrivacidadScreen} />
-            </Stack.Navigator>
-          </NavigationContainer>
+                <Stack.Screen name="Chat" component={ChatScreen} />
+                <Stack.Screen name="ScannerGym" component={ScannerGymScreen} />
+                <Stack.Screen name="ScannerResultGym" component={ScannerResultGymScreen} />
+                <Stack.Screen name="CatalogoGym" component={CatalogoGymScreen} />
+                <Stack.Screen name="ScannerFood" component={ScannerFoodScreen} />
+                <Stack.Screen name="ScannerResultFood" component={ScannerResultFoodScreen} />
+                <Stack.Screen name="HistorialFood" component={HistorialFoodScreen} />
+                <Stack.Screen name="Progreso" component={ProgresoScreen} />
+                <Stack.Screen name="HistorialSesiones" component={HistorialSesionesScreen} />
+                <Stack.Screen name="Social" component={SocialScreen} />
+                <Stack.Screen name="Amigos" component={AmigosScreen} />
+                <Stack.Screen name="Grupos" component={GruposScreen} />
+                <Stack.Screen name="Notificaciones" component={NotificacionesScreen} />
+                <Stack.Screen name="Ranking" component={RankingScreen} />
+                <Stack.Screen name="Privacidad" component={PrivacidadScreen} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </SocialProvider>
         </ScannerDemoProvider>
       </RutinasProvider>
     </AppSessionProvider>
