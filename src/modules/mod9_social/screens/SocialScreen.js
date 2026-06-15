@@ -5,9 +5,9 @@ import { useSocial } from '../context/SocialContext';
 import { C, s } from '../styles/socialStyles';
 
 const NAV_ITEMS = [
-  { icon: '🤝', title: 'Amigos', sub: 'Busca usuarios y administra solicitudes', screen: 'Amigos', color: C.purple },
-  { icon: '👥', title: 'Grupos', sub: 'Crea grupos, únete y comparte actividad', screen: 'Grupos', color: C.teal },
-  { icon: '🏆', title: 'Ranking', sub: 'Compara sesiones, puntos y rachas', screen: 'Ranking', color: C.orange },
+  { icon: '🤝', title: 'Amigos', sub: 'Gestiona amistades y solicitudes enviadas o recibidas', screen: 'Amigos', color: C.purple },
+  { icon: '👥', title: 'Grupos', sub: 'Participa en retos medibles y rankings por comunidad', screen: 'Grupos', color: C.teal },
+  { icon: '🏆', title: 'Ranking', sub: 'Compara sesiones, días activos y rachas', screen: 'Ranking', color: C.orange },
   { icon: '🔒', title: 'Privacidad', sub: 'Controla las métricas que compartes', screen: 'Privacidad', color: C.red },
 ];
 
@@ -45,7 +45,7 @@ export default function SocialScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={s.heroBadge}>MÓDULO 9 · RF58–RF72</Text>
               <Text style={s.heroTitle}>Tu comunidad fitness</Text>
-              <Text style={s.heroSub}>Conecta, comparte avances permitidos y mantén la motivación con retos amistosos.</Text>
+              <Text style={s.heroSub}>Conecta, comparte avances permitidos y participa en retos que la aplicación puede medir.</Text>
             </View>
             <View style={s.heroIcon}>
               <Text style={{ fontSize: 31 }}>👥</Text>
@@ -73,14 +73,14 @@ export default function SocialScreen({ navigation }) {
         </View>
 
         {solicitudesRecibidas.length > 0 ? (
-          <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(255,160,50,0.10)', borderColor: 'rgba(255,160,50,0.34)' }]} onPress={() => navigation.navigate('Amigos')}>
+          <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(255,160,50,0.10)', borderColor: 'rgba(255,160,50,0.34)' }]} onPress={() => navigation.navigate('Amigos', { tab: 'Solicitudes' })}>
             <View style={[s.row, { gap: 11 }]}>
               <View style={[s.iconBox, { backgroundColor: 'rgba(255,160,50,0.15)', borderColor: 'rgba(255,160,50,0.35)' }]}>
                 <Text style={{ fontSize: 22 }}>🤝</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.navTitle}>{solicitudesRecibidas.length} solicitud pendiente</Text>
-                <Text style={s.navSub}>Acepta o rechaza desde la sección de amigos.</Text>
+                <Text style={s.navSub}>Acéptala o recházala desde el gestor de Amigos.</Text>
               </View>
               <Text style={[s.arrow, { color: C.orange }]}>›</Text>
             </View>
@@ -107,7 +107,7 @@ export default function SocialScreen({ navigation }) {
               <Text style={s.friendMeta} numberOfLines={2}>{friend.actividad}</Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={[s.activeFriend, { borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }]} onPress={() => navigation.navigate('Amigos')}>
+          <TouchableOpacity style={[s.activeFriend, { borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }]} onPress={() => navigation.navigate('BuscarAmigos')}>
             <Text style={{ color: C.purple, fontSize: 27, fontWeight: '900' }}>＋</Text>
             <Text style={[s.friendName, { textAlign: 'center' }]}>Buscar amigos</Text>
           </TouchableOpacity>
@@ -153,14 +153,14 @@ export default function SocialScreen({ navigation }) {
           ))}
         </View>
 
-        <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(52,211,153,0.09)', borderColor: 'rgba(52,211,153,0.30)' }]} onPress={() => navigation.navigate('Ranking')}>
+        <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(52,211,153,0.09)', borderColor: 'rgba(52,211,153,0.30)' }]} onPress={() => navigation.navigate('Grupos')}>
           <View style={[s.row, { gap: 12 }]}>
             <Text style={{ fontSize: 30 }}>🎯</Text>
             <View style={{ flex: 1 }}>
-              <Text style={s.navTitle}>Reto semanal: 4 sesiones</Text>
-              <Text style={s.navSub}>Llevas 3 de 4. Una sesión más para completar el reto.</Text>
+              <Text style={s.navTitle}>Reto de grupo: 3 sesiones</Text>
+              <Text style={s.navSub}>Completaste la meta semanal de Gym DPUAS y ocupas el tercer lugar.</Text>
               <View style={[s.progressTrack, { marginTop: 10 }]}>
-                <View style={[s.progressFill, { width: '75%', backgroundColor: C.green }]} />
+                <View style={[s.progressFill, { width: '100%', backgroundColor: C.green }]} />
               </View>
             </View>
             <Text style={[s.arrow, { color: C.green }]}>›</Text>
