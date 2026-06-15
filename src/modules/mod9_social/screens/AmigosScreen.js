@@ -3,39 +3,47 @@ import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'reac
 import { useSocial } from '../context/SocialContext';
 import { C, s } from '../styles/socialStyles';
 
-const TABS = ['Todos', 'Amigos', 'Solicitudes', 'Buscar'];
+const TABS = ['Todos', 'Amigos', 'Solicitudes'];
+const REQUEST_FILTERS = ['Todas', 'Recibidas', 'Enviadas'];
 
 function estadoConfig(estado) {
   if (estado === 'amigo') return { label: 'Amigo', color: C.green, bg: 'rgba(52,211,153,0.12)' };
   if (estado === 'recibida') return { label: 'Solicitud recibida', color: C.orange, bg: 'rgba(255,160,50,0.12)' };
-  if (estado === 'enviada') return { label: 'Solicitud enviada', color: C.teal, bg: 'rgba(94,234,212,0.10)' };
-  return { label: 'Disponible', color: C.sub, bg: C.surface };
+  return { label: 'Solicitud enviada', color: C.teal, bg: 'rgba(94,234,212,0.10)' };
 }
 
-export default function AmigosScreen({ navigation }) {
+export default function AmigosScreen({ navigation, route }) {
   const {
     usuarios,
     amigos,
     solicitudesRecibidas,
     solicitudesEnviadas,
-    enviarSolicitud,
     cancelarSolicitud,
     aceptarSolicitud,
     rechazarSolicitud,
     eliminarAmistad,
   } = useSocial();
   const [busqueda, setBusqueda] = useState('');
-  const [tab, setTab] = useState('Todos');
+  const [tab, setTab] = useState(route?.params?.tab === 'Solicitudes' ? 'Solicitudes' : 'Todos');
+  const [requestFilter, setRequestFilter] = useState('Todas');
 
-  const filtrados = useMemo(() => usuarios.filter(user => {
+  const relaciones = useMemo(
+    () => usuarios.filter(user => ['amigo', 'recibida', 'enviada'].includes(user.estado)),
+    [usuarios],
+  );
+
+  const filtrados = useMemo(() => relaciones.filter(user => {
     const texto = `${user.nombre} ${user.codigo}`.toLowerCase();
     const coincide = !busqueda.trim() || texto.includes(busqueda.trim().toLowerCase());
     const coincideTab = tab === 'Todos'
       || (tab === 'Amigos' && user.estado === 'amigo')
-      || (tab === 'Solicitudes' && ['recibida', 'enviada'].includes(user.estado))
-      || (tab === 'Buscar' && user.estado === 'disponible');
-    return coincide && coincideTab;
-  }), [usuarios, busqueda, tab]);
+      || (tab === 'Solicitudes' && ['recibida', 'enviada'].includes(user.estado));
+    const coincideSolicitud = tab !== 'Solicitudes'
+      || requestFilter === 'Todas'
+      || (requestFilter === 'Recibidas' && user.estado === 'recibida')
+      || (requestFilter === 'Enviadas' && user.estado === 'enviada');
+    return coincide && coincideTab && coincideSolicitud;
+  }), [relaciones, busqueda, tab, requestFilter]);
 
   function confirmarCancelacion(user) {
     Alert.alert(
@@ -71,9 +79,9 @@ export default function AmigosScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={s.hero}>
-          <Text style={s.heroBadge}>RF58–RF66</Text>
-          <Text style={s.heroTitle}>Conexiones y solicitudes</Text>
-          <Text style={s.heroSub}>Busca por nombre o código único, administra solicitudes y controla tus amistades.</Text>
+          <Text style={s.heroBadge}>GESTIÓN DE RELACIONES</Text>
+          <Text style={s.heroTitle}>Amigos y solicitudes</Text>
+          <Text style={s.heroSub}>Consulta amistades aceptadas y administra solicitudes enviadas o recibidas. Las nuevas personas se buscan desde Comunidad.</Text>
         </View>
 
         <View style={s.statsRow}>
@@ -93,7 +101,7 @@ export default function AmigosScreen({ navigation }) {
 
         <TextInput
           style={s.input}
-          placeholder="Buscar nombre o código de amigo..."
+          placeholder="Filtrar amigos o solicitudes..."
           placeholderTextColor={C.muted}
           value={busqueda}
           onChangeText={setBusqueda}
@@ -108,13 +116,33 @@ export default function AmigosScreen({ navigation }) {
           ))}
         </View>
 
+        {tab === 'Solicitudes' ? (
+          <View style={[s.chips, { marginTop: -4 }]}>
+            {REQUEST_FILTERS.map(item => (
+              <TouchableOpacity
+                key={item}
+                onPress={() => setRequestFilter(item)}
+                style={[
+                  s.chip,
+                  requestFilter === item && {
+                    backgroundColor: item === 'Recibidas' ? 'rgba(255,160,50,0.14)' : item === 'Enviadas' ? 'rgba(94,234,212,0.12)' : 'rgba(124,111,205,0.18)',
+                    borderColor: item === 'Recibidas' ? C.orange : item === 'Enviadas' ? C.teal : C.purple,
+                  },
+                ]}
+              >
+                <Text style={[s.chipText, requestFilter === item && { color: C.text }]}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
         {filtrados.map(user => {
           const status = estadoConfig(user.estado);
           return (
             <View key={user.id} style={s.userCard}>
               <View style={s.userTop}>
                 <View style={{ position: 'relative' }}>
-                  <View style={[s.avatar, user.estado === 'disponible' && { backgroundColor: C.soft }]}>
+                  <View style={s.avatar}>
                     <Text style={s.avatarText}>{user.iniciales}</Text>
                   </View>
                   {user.online ? <View style={s.onlineDot} /> : null}
@@ -154,12 +182,6 @@ export default function AmigosScreen({ navigation }) {
               ) : null}
 
               <View style={s.actionsRow}>
-                {user.estado === 'disponible' ? (
-                  <TouchableOpacity style={[s.primaryBtn, { flex: 1 }]} onPress={() => enviarSolicitud(user.id)}>
-                    <Text style={s.primaryBtnText}>＋ Agregar amigo</Text>
-                  </TouchableOpacity>
-                ) : null}
-
                 {user.estado === 'enviada' ? (
                   <>
                     <View style={[s.secondaryBtn, { flex: 1 }]}>
@@ -199,9 +221,9 @@ export default function AmigosScreen({ navigation }) {
 
         {filtrados.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyIcon}>🔍</Text>
-            <Text style={s.emptyText}>No encontramos usuarios en esta sección.</Text>
-            <Text style={{ color: C.muted, fontSize: 10, marginTop: 5 }}>Prueba otro nombre, código o filtro.</Text>
+            <Text style={s.emptyIcon}>{tab === 'Amigos' ? '🤝' : '📨'}</Text>
+            <Text style={s.emptyText}>No hay elementos en esta sección.</Text>
+            <Text style={{ color: C.muted, fontSize: 10, marginTop: 5 }}>Cambia el filtro o limpia el texto de búsqueda.</Text>
           </View>
         ) : null}
       </ScrollView>
