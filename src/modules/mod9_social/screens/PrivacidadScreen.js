@@ -1,87 +1,131 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-
-const OPCIONES = [
-  { key: 'entrenamientos', icon: '🏋️', title: 'Compartir entrenamientos', sub: 'Visible para amigos y grupos', initial: true },
-  { key: 'progreso', icon: '📊', title: 'Compartir progreso', sub: 'Permite comparativas y rankings', initial: true },
-  { key: 'medidas', icon: '📏', title: 'Compartir medidas corporales', sub: 'Peso, cintura y evolución corporal', initial: false },
-  { key: 'notas', icon: '📝', title: 'Compartir notas de entrenamiento', sub: 'Desactivado por seguridad y privacidad', initial: false },
-];
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { PRIVACY_OPTIONS } from '../data/socialMock';
+import { useSocial } from '../context/SocialContext';
+import { C, s } from '../styles/socialStyles';
 
 export default function PrivacidadScreen({ navigation }) {
-  const [permisos, setPermisos] = useState(Object.fromEntries(OPCIONES.map(o => [o.key, o.initial])));
+  const { permisos, togglePermiso } = useSocial();
+  const [audiencia, setAudiencia] = useState('Amigos');
+  const [guardado, setGuardado] = useState(false);
   const activos = Object.values(permisos).filter(Boolean).length;
 
+  function guardar() {
+    setGuardado(true);
+    setTimeout(() => setGuardado(false), 1800);
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Social')} style={styles.backBtn}><Text style={styles.backText}>←</Text></TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacidad</Text>
-        <View style={{ width: 34 }} />
+    <View style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.navigate('Social')} style={s.backBtn}>
+          <Text style={s.backText}>←</Text>
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Privacidad</Text>
+        <TouchableOpacity onPress={guardar} style={s.headerAction}>
+          <Text style={s.headerActionText}>Guardar</Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <Text style={styles.badge}>RF67 · RF68 · RNF29</Text>
-          <Text style={styles.heroTitle}>Permisos sociales</Text>
-          <Text style={styles.heroSub}>Controla qué información pueden ver tus amigos. Las notas no se comparten por defecto.</Text>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <View style={s.hero}>
+          <View style={s.heroRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.heroBadge, { color: C.red }]}>RF67 · RF68</Text>
+              <Text style={s.heroTitle}>Tú controlas tus datos</Text>
+              <Text style={s.heroSub}>Define qué información puede utilizarse en comparativas, actividad social y rankings.</Text>
+            </View>
+            <View style={[s.heroIcon, { backgroundColor: 'rgba(248,113,113,0.10)', borderColor: 'rgba(248,113,113,0.32)' }]}>
+              <Text style={{ fontSize: 30 }}>🔒</Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{activos}/{OPCIONES.length}</Text>
-          <Text style={styles.summaryLabel}>permisos activos</Text>
-          <Text style={styles.summarySub}>Esto afecta visualización de progreso, comparativas y ranking.</Text>
+        {guardado ? (
+          <View style={[s.card, { backgroundColor: 'rgba(52,211,153,0.10)', borderColor: 'rgba(52,211,153,0.32)' }]}>
+            <Text style={{ color: C.green, fontSize: 12, fontWeight: '900' }}>✓ Preferencias guardadas en la demo</Text>
+            <Text style={{ color: C.sub, fontSize: 10, marginTop: 4 }}>Los cambios se reflejan visualmente durante esta sesión.</Text>
+          </View>
+        ) : null}
+
+        <View style={[s.card, s.privacySummary]}>
+          <View style={[s.row, { justifyContent: 'space-between' }]}>
+            <View>
+              <Text style={{ color: C.text, fontSize: 27, fontWeight: '900' }}>{activos}/{PRIVACY_OPTIONS.length}</Text>
+              <Text style={{ color: C.teal, fontSize: 11, fontWeight: '900', marginTop: 2 }}>PERMISOS ACTIVOS</Text>
+            </View>
+            <View style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 7, borderColor: C.purple, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ color: C.text, fontSize: 15, fontWeight: '900' }}>{Math.round((activos / PRIVACY_OPTIONS.length) * 100)}%</Text>
+            </View>
+          </View>
+          <Text style={{ color: C.sub, fontSize: 10, lineHeight: 16, marginTop: 12 }}>Estos permisos afectan la visualización de progreso, las comparativas con amigos y tu participación en rankings.</Text>
         </View>
 
-        {OPCIONES.map(o => {
-          const active = permisos[o.key];
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Audiencia predeterminada</Text>
+        </View>
+        <View style={s.chips}>
+          {['Amigos', 'Grupos', 'Solo yo'].map(item => (
+            <TouchableOpacity key={item} onPress={() => setAudiencia(item)} style={[s.chip, audiencia === item && s.chipOn]}>
+              <Text style={[s.chipText, audiencia === item && s.chipTextOn]}>{item === 'Amigos' ? '🤝 ' : item === 'Grupos' ? '👥 ' : '🔐 '}{item}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={{ color: C.muted, fontSize: 10, lineHeight: 15, marginBottom: 14 }}>
+          {audiencia === 'Amigos'
+            ? 'Tus métricas permitidas serán visibles para amistades aceptadas.'
+            : audiencia === 'Grupos'
+              ? 'Las métricas permitidas podrán aparecer dentro de tus grupos.'
+              : 'Tu progreso permanecerá visible únicamente para ti.'}
+        </Text>
+
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Información compartida</Text>
+          <Text style={s.sectionLabel}>TOCA PARA CAMBIAR</Text>
+        </View>
+
+        {PRIVACY_OPTIONS.map(option => {
+          const active = permisos[option.key];
           return (
-            <TouchableOpacity key={o.key} style={styles.optionCard} onPress={() => setPermisos(prev => ({ ...prev, [o.key]: !prev[o.key] }))} activeOpacity={0.78}>
-              <Text style={styles.optionIcon}>{o.icon}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.optionTitle}>{o.title}</Text>
-                <Text style={styles.optionSub}>{o.sub}</Text>
+            <TouchableOpacity
+              key={option.key}
+              style={[s.optionCard, option.locked && s.locked]}
+              onPress={() => togglePermiso(option.key)}
+              activeOpacity={option.locked ? 1 : 0.76}
+            >
+              <View style={[s.iconBox, { width: 42, height: 42 }]}>
+                <Text style={{ fontSize: 20 }}>{option.icon}</Text>
               </View>
-              <View style={[styles.switchTrack, active && styles.switchTrackOn]}>
-                <View style={[styles.switchKnob, active && styles.switchKnobOn]} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.optionTitle}>{option.titulo}</Text>
+                <Text style={s.optionSub}>{option.detalle}</Text>
+                {option.locked ? <Text style={{ color: C.red, fontSize: 9, fontWeight: '900', marginTop: 5 }}>BLOQUEADO POR PRIVACIDAD</Text> : null}
+              </View>
+              <View style={[s.switchTrack, active && s.switchTrackOn, option.locked && { backgroundColor: C.surface }]}>
+                <View style={[s.switchKnob, active && s.switchKnobOn]} />
               </View>
             </TouchableOpacity>
           );
         })}
 
-        <View style={styles.warningCard}>
-          <Text style={styles.warningTitle}>🔒 Regla de privacidad</Text>
-          <Text style={styles.warningText}>Las notas de sesión, ejercicio o serie se muestran en tu historial personal, pero no entran en dashboard social ni rankings.</Text>
+        <View style={[s.card, s.warning]}>
+          <Text style={s.warningTitle}>🔒 Las notas siempre son privadas</Text>
+          <Text style={s.warningText}>Las notas de sesión, ejercicio o serie solo aparecen en tu historial personal. No se muestran a amigos, grupos ni rankings, aunque compartas tu progreso.</Text>
+        </View>
+
+        <View style={s.card}>
+          <Text style={s.sectionTitle}>Qué pueden ver tus amigos</Text>
+          <View style={{ marginTop: 10 }}>
+            {PRIVACY_OPTIONS.filter(option => permisos[option.key]).map(option => (
+              <View key={option.key} style={[s.row, { gap: 8, paddingVertical: 6 }]}>
+                <Text style={{ color: C.green, fontWeight: '900' }}>✓</Text>
+                <Text style={{ color: C.sub, fontSize: 10 }}>{option.titulo}</Text>
+              </View>
+            ))}
+            {activos === 0 ? <Text style={{ color: C.muted, fontSize: 10 }}>No compartes ninguna métrica social.</Text> : null}
+          </View>
         </View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#13132a' },
-  header: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a35', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#2a2a35', alignItems: 'center', justifyContent: 'center' },
-  backText: { color: 'white', fontSize: 22, fontWeight: '700' },
-  headerTitle: { color: 'white', fontSize: 18, fontWeight: '800' },
-  content: { padding: 20, paddingBottom: 42 },
-  heroCard: { backgroundColor: '#2a2a35', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#393948', marginBottom: 14 },
-  badge: { color: '#f87171', fontSize: 11, fontWeight: '800', marginBottom: 8 },
-  heroTitle: { color: 'white', fontSize: 21, fontWeight: '900' },
-  heroSub: { color: '#9a9aa8', fontSize: 12, lineHeight: 18, marginTop: 5 },
-  summaryCard: { backgroundColor: 'rgba(124,111,205,0.14)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(124,111,205,0.32)', marginBottom: 14 },
-  summaryValue: { color: 'white', fontSize: 28, fontWeight: '900' },
-  summaryLabel: { color: '#5eead4', fontSize: 12, fontWeight: '900', marginTop: 2 },
-  summarySub: { color: '#a5a5b4', fontSize: 11, lineHeight: 17, marginTop: 8 },
-  optionCard: { backgroundColor: '#2a2a35', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#333', marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  optionIcon: { fontSize: 24, width: 32, textAlign: 'center' },
-  optionTitle: { color: 'white', fontSize: 14, fontWeight: '900' },
-  optionSub: { color: '#888', fontSize: 11, marginTop: 3, lineHeight: 16 },
-  switchTrack: { width: 46, height: 26, borderRadius: 13, backgroundColor: '#3a3a49', padding: 3, justifyContent: 'center' },
-  switchTrackOn: { backgroundColor: '#7c6fcd' },
-  switchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#aaa' },
-  switchKnobOn: { alignSelf: 'flex-end', backgroundColor: 'white' },
-  warningCard: { backgroundColor: 'rgba(248,113,113,0.08)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(248,113,113,0.28)', marginTop: 4 },
-  warningTitle: { color: '#f87171', fontSize: 13, fontWeight: '900', marginBottom: 5 },
-  warningText: { color: '#c7c7d6', fontSize: 11, lineHeight: 17 },
-});
