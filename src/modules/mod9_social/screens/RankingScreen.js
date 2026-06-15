@@ -5,14 +5,46 @@ import { C, s } from '../styles/socialStyles';
 
 const METRICAS = [
   { id: 'sesiones', label: 'Sesiones', icon: '🏋️' },
-  { id: 'puntos', label: 'Puntos', icon: '⚡' },
+  { id: 'dias', label: 'Días activos', icon: '📅' },
   { id: 'racha', label: 'Racha', icon: '🔥' },
 ];
+
+const DETALLES = {
+  sesiones: {
+    title: 'Sesiones completadas',
+    source: 'Historial de entrenamientos del Módulo 4.',
+    rules: [
+      'Cuenta una sesión finalizada y guardada con al menos una serie registrada.',
+      'Las sesiones canceladas o abiertas sin actividad no se contabilizan.',
+      'Cada sesión válida cuenta una vez, aunque incluya muchos ejercicios.',
+    ],
+  },
+  dias: {
+    title: 'Días activos',
+    source: 'Fechas del historial de sesiones válidas.',
+    rules: [
+      'Cuenta cada fecha distinta con al menos una sesión válida.',
+      'Dos o más sesiones el mismo día siguen contando como un solo día activo.',
+      'Solo se consideran fechas dentro de la semana o mes seleccionado.',
+    ],
+  },
+  racha: {
+    title: 'Racha actual',
+    source: 'Continuidad de días activos registrados.',
+    rules: [
+      'Cuenta días consecutivos con al menos una sesión válida.',
+      'La racha permanece activa si el último entrenamiento fue hoy o ayer.',
+      'Un día completo sin actividad después de ese margen reinicia la racha.',
+    ],
+  },
+};
+
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function RankingScreen({ navigation }) {
   const [periodo, setPeriodo] = useState('semanal');
   const [metrica, setMetrica] = useState('sesiones');
+  const [detalleAbierto, setDetalleAbierto] = useState(true);
 
   const ranking = SOCIAL_RANKINGS[periodo][metrica];
   const currentIndex = ranking.findIndex(item => item.id === 0);
@@ -20,11 +52,12 @@ export default function RankingScreen({ navigation }) {
   const leader = ranking[0];
   const max = Math.max(...ranking.map(item => item.valor), 1);
   const diferencia = Math.max(0, leader.valor - current.valor);
+  const detalle = DETALLES[metrica];
 
   const mensaje = useMemo(() => {
     if (currentIndex === 0) return '¡Vas liderando! Mantén la constancia sin convertirlo en una competencia negativa.';
     if (metrica === 'sesiones') return `Estás a ${diferencia} sesión${diferencia === 1 ? '' : 'es'} del primer lugar.`;
-    if (metrica === 'puntos') return `Te separan ${diferencia.toLocaleString()} puntos del primer lugar.`;
+    if (metrica === 'dias') return `Estás a ${diferencia} día${diferencia === 1 ? '' : 's'} activo${diferencia === 1 ? '' : 's'} del primer lugar.`;
     return `Estás a ${diferencia} día${diferencia === 1 ? '' : 's'} de la mejor racha.`;
   }, [currentIndex, diferencia, metrica]);
 
@@ -34,7 +67,7 @@ export default function RankingScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.navigate('Social')} style={s.backBtn}>
           <Text style={s.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Ranking</Text>
+        <Text style={s.headerTitle}>Ranking de amigos</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -43,8 +76,8 @@ export default function RankingScreen({ navigation }) {
           <View style={s.heroRow}>
             <View style={{ flex: 1 }}>
               <Text style={[s.heroBadge, { color: C.orange }]}>RF69 · RF70</Text>
-              <Text style={s.heroTitle}>Competencia amistosa</Text>
-              <Text style={s.heroSub}>Compara métricas compartidas por tus amigos durante la semana o el mes.</Text>
+              <Text style={s.heroTitle}>Competencia amistosa y transparente</Text>
+              <Text style={s.heroSub}>Compara únicamente datos que la aplicación registra y que cada amistad permitió compartir.</Text>
             </View>
             <View style={[s.heroIcon, { backgroundColor: 'rgba(255,160,50,0.13)', borderColor: 'rgba(255,160,50,0.35)' }]}>
               <Text style={{ fontSize: 31 }}>🏆</Text>
@@ -67,6 +100,27 @@ export default function RankingScreen({ navigation }) {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(96,165,250,0.08)', borderColor: 'rgba(96,165,250,0.28)' }]} onPress={() => setDetalleAbierto(prev => !prev)} activeOpacity={0.78}>
+          <View style={[s.row, { justifyContent: 'space-between', gap: 12 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: C.blue, fontSize: 12, fontWeight: '900' }}>ℹ️ Cómo se calcula: {detalle.title}</Text>
+              <Text style={{ color: C.sub, fontSize: 10, marginTop: 4 }}>{detalle.source}</Text>
+            </View>
+            <Text style={{ color: C.blue, fontSize: 12, fontWeight: '900' }}>{detalleAbierto ? '▲' : '▼'}</Text>
+          </View>
+          {detalleAbierto ? (
+            <View style={{ marginTop: 11, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border }}>
+              {detalle.rules.map((rule, index) => (
+                <View key={rule} style={[s.row, { alignItems: 'flex-start', gap: 8, marginBottom: index === detalle.rules.length - 1 ? 0 : 7 }]}>
+                  <Text style={{ color: C.blue, fontSize: 10, fontWeight: '900' }}>{index + 1}.</Text>
+                  <Text style={{ color: C.sub, fontSize: 10, lineHeight: 15, flex: 1 }}>{rule}</Text>
+                </View>
+              ))}
+              <Text style={{ color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 9 }}>Participan únicamente amistades aceptadas con permisos de Entrenamientos y Ranking activos.</Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
 
         <View style={[s.card, { paddingTop: 17 }]}>
           <View style={[s.row, { justifyContent: 'space-between', marginBottom: 13 }]}>
@@ -125,8 +179,8 @@ export default function RankingScreen({ navigation }) {
         </View>
 
         <View style={[s.card, s.warning]}>
-          <Text style={s.warningTitle}>🔒 Comparación con privacidad</Text>
-          <Text style={s.warningText}>Solo aparecen métricas que cada amigo autorizó compartir. Las notas de entrenamiento nunca forman parte del ranking.</Text>
+          <Text style={s.warningTitle}>🔒 Límites de la comparación</Text>
+          <Text style={s.warningText}>No se utilizan peso corporal, medidas, calorías, notas personales ni cargas absolutas por ejercicio en este ranking general. Así se evitan comparaciones invasivas o poco equivalentes.</Text>
         </View>
       </ScrollView>
     </View>
