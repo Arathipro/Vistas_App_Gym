@@ -6,13 +6,14 @@ import { C, s } from '../styles/socialStyles';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-function defaultForm() {
+function createForm() {
   const type = GROUP_CHALLENGE_TYPES[0];
   return {
     mode: 'create',
     groupId: null,
     nombre: '',
     descripcion: '',
+    reglas: '',
     tipo: type.id,
     meta: String(type.defaultGoal),
     periodo: type.periods[0],
@@ -24,6 +25,7 @@ export default function GruposScreen({ navigation }) {
     grupos,
     misGrupos,
     crearGrupo,
+    actualizarDatosGrupo,
     actualizarRetoGrupo,
     unirseGrupo,
     salirGrupo,
@@ -32,7 +34,7 @@ export default function GruposScreen({ navigation }) {
   const [tab, setTab] = useState('Mis grupos');
   const [grupoAbierto, setGrupoAbierto] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState(defaultForm());
+  const [form, setForm] = useState(createForm());
 
   const visibles = useMemo(
     () => tab === 'Mis grupos' ? grupos.filter(item => item.joined) : grupos.filter(item => !item.joined),
@@ -41,16 +43,31 @@ export default function GruposScreen({ navigation }) {
   const selectedType = GROUP_CHALLENGE_TYPES.find(item => item.id === form.tipo) || GROUP_CHALLENGE_TYPES[0];
 
   function abrirCrear() {
-    setForm(defaultForm());
+    setForm(createForm());
     setModalVisible(true);
   }
 
-  function abrirEditar(group) {
+  function abrirEditarDatos(group) {
     setForm({
-      mode: 'edit',
+      mode: 'group',
       groupId: group.id,
       nombre: group.nombre,
-      descripcion: group.descripcion,
+      descripcion: group.descripcion || '',
+      reglas: group.reglas || '',
+      tipo: group.reto.tipo,
+      meta: String(group.reto.meta),
+      periodo: group.reto.periodo,
+    });
+    setModalVisible(true);
+  }
+
+  function abrirEditarReto(group) {
+    setForm({
+      mode: 'challenge',
+      groupId: group.id,
+      nombre: group.nombre,
+      descripcion: group.descripcion || '',
+      reglas: group.reglas || '',
       tipo: group.reto.tipo,
       meta: String(group.reto.meta),
       periodo: group.reto.periodo,
@@ -69,6 +86,24 @@ export default function GruposScreen({ navigation }) {
   }
 
   function guardar() {
+    if (form.mode === 'group') {
+      if (!form.nombre.trim()) {
+        Alert.alert('Nombre requerido', 'El grupo debe conservar un nombre.');
+        return;
+      }
+      const saved = actualizarDatosGrupo(form.groupId, {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        reglas: form.reglas,
+      });
+      if (!saved) {
+        Alert.alert('No autorizado', 'Solo el administrador puede editar la información del grupo.');
+        return;
+      }
+      setModalVisible(false);
+      return;
+    }
+
     const metaNumerica = Number(form.meta);
     if (form.mode === 'create' && !form.nombre.trim()) {
       Alert.alert('Nombre requerido', 'Escribe un nombre para crear el grupo.');
@@ -80,11 +115,11 @@ export default function GruposScreen({ navigation }) {
     }
 
     const retoConfig = { tipo: form.tipo, meta: metaNumerica, periodo: form.periodo };
-    if (form.mode === 'edit') {
+    if (form.mode === 'challenge') {
       actualizarRetoGrupo(form.groupId, retoConfig);
       setGrupoAbierto(form.groupId);
     } else {
-      const id = crearGrupo(form.nombre, form.descripcion, retoConfig);
+      const id = crearGrupo(form.nombre, form.descripcion, form.reglas, retoConfig);
       setTab('Mis grupos');
       setGrupoAbierto(id);
     }
@@ -107,6 +142,18 @@ export default function GruposScreen({ navigation }) {
     Alert.alert('Actividad compartida', `Se notificó a ${group.nombre} que comenzaste a entrenar.`);
   }
 
+  const modalTitle = form.mode === 'create'
+    ? 'Crear grupo con reto'
+    : form.mode === 'group'
+      ? 'Editar información del grupo'
+      : 'Actualizar reto del grupo';
+
+  const modalDescription = form.mode === 'create'
+    ? 'Define la comunidad, sus reglas y un objetivo que la aplicación pueda comprobar.'
+    : form.mode === 'group'
+      ? 'Actualiza el nombre, descripción o reglas. El reto y su progreso no se modificarán.'
+      : 'Al cambiar el reto, el progreso y ranking del ciclo actual se reiniciarán.';
+
   return (
     <View style={s.container}>
       <View style={s.header}>
@@ -125,7 +172,7 @@ export default function GruposScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={s.heroBadge}>COMUNIDADES CON OBJETIVO</Text>
               <Text style={s.heroTitle}>Retos que la app sí puede medir</Text>
-              <Text style={s.heroSub}>Cada grupo define una meta, un periodo y un ranking específico basado en el historial real de entrenamiento.</Text>
+              <Text style={s.heroSub}>Cada grupo define información, reglas, una meta y un ranking específico basado en el historial real.</Text>
             </View>
             <View style={[s.heroIcon, { backgroundColor: 'rgba(94,234,212,0.12)', borderColor: 'rgba(94,234,212,0.32)' }]}>
               <Text style={{ fontSize: 30 }}>🎯</Text>
@@ -150,7 +197,7 @@ export default function GruposScreen({ navigation }) {
 
         <View style={[s.card, { backgroundColor: 'rgba(96,165,250,0.08)', borderColor: 'rgba(96,165,250,0.28)' }]}>
           <Text style={{ color: C.blue, fontSize: 12, fontWeight: '900' }}>ℹ️ Retos permitidos</Text>
-          <Text style={{ color: C.sub, fontSize: 10, lineHeight: 16, marginTop: 6 }}>Sesiones completadas, días activos, minutos totales y minutos de cardio. No se permiten objetivos de pasos, distancia, calorías o peso corporal porque la app no los registra con la misma confiabilidad.</Text>
+          <Text style={{ color: C.sub, fontSize: 10, lineHeight: 16, marginTop: 6 }}>Sesiones completadas, días activos, minutos totales y minutos de cardio. No se incluyen pasos, calorías, distancia ni cambios corporales.</Text>
         </View>
 
         <View style={s.periodToggle}>
@@ -208,12 +255,29 @@ export default function GruposScreen({ navigation }) {
                 <View style={s.groupDetails}>
                   <View style={[s.row, { justifyContent: 'space-between', gap: 10 }]}>
                     <View style={{ flex: 1 }}>
+                      <Text style={s.sectionLabel}>INFORMACIÓN DEL GRUPO</Text>
+                      <Text style={{ color: C.text, fontSize: 13, fontWeight: '900', marginTop: 6 }}>{group.nombre}</Text>
+                    </View>
+                    {group.admin ? (
+                      <TouchableOpacity style={s.secondaryBtn} onPress={() => abrirEditarDatos(group)}>
+                        <Text style={[s.secondaryBtnText, { color: C.teal }]}>✎ Editar grupo</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  <View style={[s.card, { marginTop: 10, marginBottom: 12, padding: 12, backgroundColor: C.card }]}>
+                    <Text style={s.sectionLabel}>REGLAS Y NOTAS</Text>
+                    <Text style={{ color: C.sub, fontSize: 10, lineHeight: 16, marginTop: 6 }}>{group.reglas || 'Sin reglas adicionales definidas.'}</Text>
+                  </View>
+
+                  <View style={[s.row, { justifyContent: 'space-between', gap: 10 }]}>
+                    <View style={{ flex: 1 }}>
                       <Text style={s.sectionLabel}>RETO ACTUAL</Text>
                       <Text style={{ color: C.text, fontSize: 13, fontWeight: '900', marginTop: 6 }}>{group.reto.label}</Text>
                       <Text style={{ color: group.color, fontSize: 11, fontWeight: '900', marginTop: 4 }}>Meta: {group.reto.meta} {group.reto.unit} · {group.reto.periodo}</Text>
                     </View>
                     {group.admin ? (
-                      <TouchableOpacity style={s.secondaryBtn} onPress={() => abrirEditar(group)}>
+                      <TouchableOpacity style={s.secondaryBtn} onPress={() => abrirEditarReto(group)}>
                         <Text style={[s.secondaryBtnText, { color: C.orange }]}>✎ Editar reto</Text>
                       </TouchableOpacity>
                     ) : null}
@@ -296,11 +360,11 @@ export default function GruposScreen({ navigation }) {
         <View style={s.modalOverlay}>
           <View style={[s.modalCard, { maxHeight: '90%' }]}>
             <View style={s.modalHandle} />
-            <Text style={s.modalTitle}>{form.mode === 'edit' ? 'Actualizar reto del grupo' : 'Crear grupo con reto'}</Text>
-            <Text style={s.modalSub}>{form.mode === 'edit' ? 'Al cambiar el tipo o la meta, el progreso y ranking del ciclo actual se reiniciarán.' : 'Todo grupo debe iniciar con un objetivo que la aplicación pueda comprobar.'}</Text>
+            <Text style={s.modalTitle}>{modalTitle}</Text>
+            <Text style={s.modalSub}>{modalDescription}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {form.mode === 'create' ? (
+              {form.mode !== 'challenge' ? (
                 <>
                   <Text style={[s.sectionLabel, { marginBottom: 7 }]}>DATOS DEL GRUPO</Text>
                   <TextInput
@@ -313,12 +377,21 @@ export default function GruposScreen({ navigation }) {
                   />
                   <TextInput
                     style={[s.input, { minHeight: 74, textAlignVertical: 'top' }]}
-                    placeholder="Descripción del grupo (opcional)"
+                    placeholder="Descripción del grupo"
                     placeholderTextColor={C.muted}
                     value={form.descripcion}
                     onChangeText={descripcion => setForm(prev => ({ ...prev, descripcion }))}
                     multiline
-                    maxLength={140}
+                    maxLength={180}
+                  />
+                  <TextInput
+                    style={[s.input, { minHeight: 90, textAlignVertical: 'top' }]}
+                    placeholder="Reglas, acuerdos o notas del reto"
+                    placeholderTextColor={C.muted}
+                    value={form.reglas}
+                    onChangeText={reglas => setForm(prev => ({ ...prev, reglas }))}
+                    multiline
+                    maxLength={500}
                   />
                 </>
               ) : (
@@ -328,57 +401,61 @@ export default function GruposScreen({ navigation }) {
                 </View>
               )}
 
-              <Text style={[s.sectionLabel, { marginBottom: 8 }]}>TIPO DE RETO</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 12 }} style={{ marginBottom: 13 }}>
-                {GROUP_CHALLENGE_TYPES.map(type => (
-                  <TouchableOpacity
-                    key={type.id}
-                    onPress={() => cambiarTipo(type.id)}
-                    style={[
-                      s.secondaryBtn,
-                      { minWidth: 145, alignItems: 'flex-start' },
-                      form.tipo === type.id && { backgroundColor: 'rgba(124,111,205,0.20)', borderColor: C.purple },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 20 }}>{type.icon}</Text>
-                    <Text style={[s.secondaryBtnText, { color: form.tipo === type.id ? C.text : C.sub, marginTop: 5 }]}>{type.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {form.mode !== 'group' ? (
+                <>
+                  <Text style={[s.sectionLabel, { marginBottom: 8 }]}>TIPO DE RETO</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 12 }} style={{ marginBottom: 13 }}>
+                    {GROUP_CHALLENGE_TYPES.map(type => (
+                      <TouchableOpacity
+                        key={type.id}
+                        onPress={() => cambiarTipo(type.id)}
+                        style={[
+                          s.secondaryBtn,
+                          { minWidth: 145, alignItems: 'flex-start' },
+                          form.tipo === type.id && { backgroundColor: 'rgba(124,111,205,0.20)', borderColor: C.purple },
+                        ]}
+                      >
+                        <Text style={{ fontSize: 20 }}>{type.icon}</Text>
+                        <Text style={[s.secondaryBtnText, { color: form.tipo === type.id ? C.text : C.sub, marginTop: 5 }]}>{type.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
 
-              <View style={[s.card, { backgroundColor: 'rgba(96,165,250,0.08)', borderColor: 'rgba(96,165,250,0.28)' }]}>
-                <Text style={{ color: C.blue, fontSize: 11, fontWeight: '900' }}>Fuente de medición</Text>
-                <Text style={{ color: C.sub, fontSize: 10, lineHeight: 15, marginTop: 5 }}>{selectedType.source}</Text>
-              </View>
+                  <View style={[s.card, { backgroundColor: 'rgba(96,165,250,0.08)', borderColor: 'rgba(96,165,250,0.28)' }]}>
+                    <Text style={{ color: C.blue, fontSize: 11, fontWeight: '900' }}>Fuente de medición</Text>
+                    <Text style={{ color: C.sub, fontSize: 10, lineHeight: 15, marginTop: 5 }}>{selectedType.source}</Text>
+                  </View>
 
-              <Text style={[s.sectionLabel, { marginBottom: 7 }]}>PERIODO</Text>
-              <View style={s.chips}>
-                {selectedType.periods.map(period => (
-                  <TouchableOpacity
-                    key={period}
-                    onPress={() => setForm(prev => ({ ...prev, periodo: period }))}
-                    style={[s.chip, form.periodo === period && s.chipOn]}
-                  >
-                    <Text style={[s.chipText, form.periodo === period && s.chipTextOn]}>{period}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  <Text style={[s.sectionLabel, { marginBottom: 7 }]}>PERIODO</Text>
+                  <View style={s.chips}>
+                    {selectedType.periods.map(period => (
+                      <TouchableOpacity
+                        key={period}
+                        onPress={() => setForm(prev => ({ ...prev, periodo: period }))}
+                        style={[s.chip, form.periodo === period && s.chipOn]}
+                      >
+                        <Text style={[s.chipText, form.periodo === period && s.chipTextOn]}>{period}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-              <Text style={[s.sectionLabel, { marginBottom: 7 }]}>META DEL RETO</Text>
-              <TextInput
-                style={s.input}
-                placeholder={`Cantidad de ${selectedType.unit}`}
-                placeholderTextColor={C.muted}
-                value={form.meta}
-                onChangeText={meta => setForm(prev => ({ ...prev, meta: meta.replace(/[^0-9]/g, '') }))}
-                keyboardType="number-pad"
-                maxLength={4}
-              />
-              <View style={[s.card, { backgroundColor: `${C.teal}10`, borderColor: `${C.teal}40` }]}>
-                <Text style={{ color: C.teal, fontSize: 10, fontWeight: '900' }}>VISTA PREVIA</Text>
-                <Text style={{ color: C.text, fontSize: 14, fontWeight: '900', marginTop: 6 }}>{selectedType.icon} {selectedType.label}</Text>
-                <Text style={{ color: C.sub, fontSize: 11, marginTop: 4 }}>Meta: {form.meta || '0'} {selectedType.unit} · {form.periodo}</Text>
-              </View>
+                  <Text style={[s.sectionLabel, { marginBottom: 7 }]}>META DEL RETO</Text>
+                  <TextInput
+                    style={s.input}
+                    placeholder={`Cantidad de ${selectedType.unit}`}
+                    placeholderTextColor={C.muted}
+                    value={form.meta}
+                    onChangeText={meta => setForm(prev => ({ ...prev, meta: meta.replace(/[^0-9]/g, '') }))}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <View style={[s.card, { backgroundColor: `${C.teal}10`, borderColor: `${C.teal}40` }]}>
+                    <Text style={{ color: C.teal, fontSize: 10, fontWeight: '900' }}>VISTA PREVIA</Text>
+                    <Text style={{ color: C.text, fontSize: 14, fontWeight: '900', marginTop: 6 }}>{selectedType.icon} {selectedType.label}</Text>
+                    <Text style={{ color: C.sub, fontSize: 11, marginTop: 4 }}>Meta: {form.meta || '0'} {selectedType.unit} · {form.periodo}</Text>
+                  </View>
+                </>
+              ) : null}
             </ScrollView>
 
             <View style={s.actionsRow}>
@@ -386,7 +463,7 @@ export default function GruposScreen({ navigation }) {
                 <Text style={s.secondaryBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[s.primaryBtn, { flex: 1 }]} onPress={guardar}>
-                <Text style={s.primaryBtnText}>{form.mode === 'edit' ? 'Actualizar reto' : 'Crear grupo'}</Text>
+                <Text style={s.primaryBtnText}>{form.mode === 'create' ? 'Crear grupo' : 'Guardar cambios'}</Text>
               </TouchableOpacity>
             </View>
           </View>
