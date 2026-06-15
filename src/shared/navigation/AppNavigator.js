@@ -54,6 +54,7 @@ import HistorialSesionesScreen from '../../modules/mod8_progreso/screens/Histori
 
 // ── Módulo 9: Social ──────────────────────────────────────────────────────────
 import SocialScreen          from '../../modules/mod9_social/screens/SocialScreen';
+import BuscarAmigosScreen    from '../../modules/mod9_social/screens/BuscarAmigosScreen';
 import AmigosScreen          from '../../modules/mod9_social/screens/AmigosScreen';
 import GruposScreen          from '../../modules/mod9_social/screens/GruposScreen';
 import NotificacionesScreen  from '../../modules/mod9_social/screens/NotificacionesScreen';
@@ -105,6 +106,7 @@ export default function AppNavigator() {
                 <Stack.Screen name="Progreso" component={ProgresoScreen} />
                 <Stack.Screen name="HistorialSesiones" component={HistorialSesionesScreen} />
                 <Stack.Screen name="Social" component={SocialScreen} />
+                <Stack.Screen name="BuscarAmigos" component={BuscarAmigosScreen} />
                 <Stack.Screen name="Amigos" component={AmigosScreen} />
                 <Stack.Screen name="Grupos" component={GruposScreen} />
                 <Stack.Screen name="Notificaciones" component={NotificacionesScreen} />
