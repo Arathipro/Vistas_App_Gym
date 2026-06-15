@@ -1,98 +1,172 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SOCIAL_ACTIVITY } from '../data/socialMock';
+import { useSocial } from '../context/SocialContext';
+import { C, s } from '../styles/socialStyles';
 
-const CARDS = [
-  { icon: '🤝', title: 'Amigos', sub: '3 conexiones · 2 solicitudes pendientes', screen: 'Amigos', color: '#7c6fcd' },
-  { icon: '👥', title: 'Grupos', sub: 'Gym DPUAS · avisos de entreno', screen: 'Grupos', color: '#5eead4' },
-  { icon: '🏆', title: 'Ranking', sub: 'Comparativas amistosas del mes', screen: 'Ranking', color: '#ffa032' },
-  { icon: '🔔', title: 'Notificaciones', sub: 'Actividad reciente y solicitudes', screen: 'Notificaciones', color: '#34d399' },
-  { icon: '🔒', title: 'Privacidad', sub: 'Controla qué compartes', screen: 'Privacidad', color: '#f87171' },
+const NAV_ITEMS = [
+  { icon: '🤝', title: 'Amigos', sub: 'Busca usuarios y administra solicitudes', screen: 'Amigos', color: C.purple },
+  { icon: '👥', title: 'Grupos', sub: 'Crea grupos, únete y comparte actividad', screen: 'Grupos', color: C.teal },
+  { icon: '🏆', title: 'Ranking', sub: 'Compara sesiones, puntos y rachas', screen: 'Ranking', color: C.orange },
+  { icon: '🔒', title: 'Privacidad', sub: 'Controla las métricas que compartes', screen: 'Privacidad', color: C.red },
 ];
 
 export default function SocialScreen({ navigation }) {
+  const {
+    amigos,
+    solicitudesRecibidas,
+    misGrupos,
+    unreadCount,
+  } = useSocial();
+
+  const amigosActivos = amigos.filter(item => item.online);
+  const miPosicion = 3;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.backBtn}><Text style={styles.backText}>←</Text></TouchableOpacity>
-        <Text style={styles.headerTitle}>Comunidad</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Notificaciones')} style={styles.bellBtn}><Text>🔔</Text><View style={styles.dot} /></TouchableOpacity>
+    <View style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={s.backBtn}>
+          <Text style={s.backText}>←</Text>
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Comunidad</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Notificaciones')} style={s.headerAction}>
+          <Text style={{ fontSize: 18 }}>🔔</Text>
+          {unreadCount > 0 ? (
+            <View style={s.bellDot}>
+              <Text style={s.bellDotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.badge}>Módulo 9 · RF58–RF72</Text>
-            <Text style={styles.heroTitle}>Tu comunidad fitness</Text>
-            <Text style={styles.heroSub}>Busca amigos, acepta solicitudes, crea grupos y compite en rankings sanos.</Text>
-          </View>
-          <View style={styles.heroIcon}><Text style={{ fontSize: 30 }}>👥</Text></View>
-        </View>
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}><Text style={styles.statValue}>3</Text><Text style={styles.statLabel}>Amigos</Text></View>
-          <View style={styles.statCard}><Text style={[styles.statValue, { color: '#5eead4' }]}>1</Text><Text style={styles.statLabel}>Grupo</Text></View>
-          <View style={styles.statCard}><Text style={[styles.statValue, { color: '#ffa032' }]}>#3</Text><Text style={styles.statLabel}>Ranking</Text></View>
-        </View>
-
-        <Text style={styles.sectionLabel}>Flujo social demo</Text>
-        {CARDS.map(card => (
-          <TouchableOpacity key={card.screen} style={styles.navCard} onPress={() => navigation.navigate(card.screen)} activeOpacity={0.75}>
-            <View style={[styles.navIconBox, { backgroundColor: `${card.color}22`, borderColor: `${card.color}55` }]}><Text style={styles.navIcon}>{card.icon}</Text></View>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <View style={[s.hero, s.cardAccent]}>
+          <View style={s.heroRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.navTitle}>{card.title}</Text>
-              <Text style={styles.navSub}>{card.sub}</Text>
+              <Text style={s.heroBadge}>MÓDULO 9 · RF58–RF72</Text>
+              <Text style={s.heroTitle}>Tu comunidad fitness</Text>
+              <Text style={s.heroSub}>Conecta, comparte avances permitidos y mantén la motivación con retos amistosos.</Text>
             </View>
-            <Text style={styles.arrow}>›</Text>
+            <View style={s.heroIcon}>
+              <Text style={{ fontSize: 31 }}>👥</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={s.statsRow}>
+          <View style={s.statCard}>
+            <Text style={s.statValue}>{amigos.length}</Text>
+            <Text style={s.statLabel}>AMIGOS</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: C.green }]}>{amigosActivos.length}</Text>
+            <Text style={s.statLabel}>ACTIVOS</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: C.teal }]}>{misGrupos.length}</Text>
+            <Text style={s.statLabel}>GRUPOS</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { color: C.orange }]}>#{miPosicion}</Text>
+            <Text style={s.statLabel}>RANKING</Text>
+          </View>
+        </View>
+
+        {solicitudesRecibidas.length > 0 ? (
+          <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(255,160,50,0.10)', borderColor: 'rgba(255,160,50,0.34)' }]} onPress={() => navigation.navigate('Amigos')}>
+            <View style={[s.row, { gap: 11 }]}>
+              <View style={[s.iconBox, { backgroundColor: 'rgba(255,160,50,0.15)', borderColor: 'rgba(255,160,50,0.35)' }]}>
+                <Text style={{ fontSize: 22 }}>🤝</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.navTitle}>{solicitudesRecibidas.length} solicitud pendiente</Text>
+                <Text style={s.navSub}>Acepta o rechaza desde la sección de amigos.</Text>
+              </View>
+              <Text style={[s.arrow, { color: C.orange }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Amigos activos</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Amigos')}>
+            <Text style={s.sectionLink}>Ver todos</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalContent} style={{ marginRight: -18, marginBottom: 16 }}>
+          {amigosActivos.map(friend => (
+            <TouchableOpacity key={friend.id} style={s.activeFriend} onPress={() => navigation.navigate('Amigos')}>
+              <View style={{ alignSelf: 'flex-start', position: 'relative' }}>
+                <View style={s.avatar}>
+                  <Text style={s.avatarText}>{friend.iniciales}</Text>
+                </View>
+                <View style={s.onlineDot} />
+              </View>
+              <Text style={s.friendName} numberOfLines={1}>{friend.nombre.split(' ')[0]}</Text>
+              <Text style={s.friendMeta} numberOfLines={2}>{friend.actividad}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={[s.activeFriend, { borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }]} onPress={() => navigation.navigate('Amigos')}>
+            <Text style={{ color: C.purple, fontSize: 27, fontWeight: '900' }}>＋</Text>
+            <Text style={[s.friendName, { textAlign: 'center' }]}>Buscar amigos</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Explorar comunidad</Text>
+        </View>
+
+        {NAV_ITEMS.map(item => (
+          <TouchableOpacity key={item.screen} style={s.card} onPress={() => navigation.navigate(item.screen)} activeOpacity={0.76}>
+            <View style={[s.row, { gap: 12 }]}>
+              <View style={[s.iconBox, { backgroundColor: `${item.color}1F`, borderColor: `${item.color}55` }]}>
+                <Text style={{ fontSize: 22 }}>{item.icon}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.navTitle}>{item.title}</Text>
+                <Text style={s.navSub}>{item.sub}</Text>
+              </View>
+              <Text style={s.arrow}>›</Text>
+            </View>
           </TouchableOpacity>
         ))}
 
-        <View style={styles.activityCard}>
-          <Text style={styles.sectionTitle}>Actividad reciente</Text>
-          {[
-            ['🏋️', 'María comenzó entrenamiento', 'Hace 10 min · Grupo Gym DPUAS'],
-            ['🤝', 'Juan Pérez envió solicitud', 'Pendiente de respuesta'],
-            ['🏆', 'Luis subió al #1 del ranking', '28 sesiones este mes'],
-          ].map((a, i) => (
-            <View key={i} style={styles.activityRow}>
-              <Text style={styles.activityIcon}>{a[0]}</Text>
-              <View style={{ flex: 1 }}><Text style={styles.activityTitle}>{a[1]}</Text><Text style={styles.activitySub}>{a[2]}</Text></View>
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Actividad reciente</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Notificaciones')}>
+            <Text style={s.sectionLink}>Notificaciones</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={s.card}>
+          {SOCIAL_ACTIVITY.map((item, index) => (
+            <View key={item.id} style={[s.activityRow, index === 0 && { borderTopWidth: 0, paddingTop: 0 }]}>
+              <View style={[s.iconBox, { width: 38, height: 38, borderRadius: 12, backgroundColor: `${item.color}1C`, borderColor: `${item.color}45` }]}>
+                <Text style={{ fontSize: 18 }}>{item.icon}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.activityTitle}><Text style={{ fontWeight: '900' }}>{item.nombre}</Text> {item.texto}</Text>
+                <Text style={s.activityTime}>{item.tiempo}</Text>
+              </View>
             </View>
           ))}
         </View>
+
+        <TouchableOpacity style={[s.card, { backgroundColor: 'rgba(52,211,153,0.09)', borderColor: 'rgba(52,211,153,0.30)' }]} onPress={() => navigation.navigate('Ranking')}>
+          <View style={[s.row, { gap: 12 }]}>
+            <Text style={{ fontSize: 30 }}>🎯</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.navTitle}>Reto semanal: 4 sesiones</Text>
+              <Text style={s.navSub}>Llevas 3 de 4. Una sesión más para completar el reto.</Text>
+              <View style={[s.progressTrack, { marginTop: 10 }]}>
+                <View style={[s.progressFill, { width: '75%', backgroundColor: C.green }]} />
+              </View>
+            </View>
+            <Text style={[s.arrow, { color: C.green }]}>›</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#13132a' },
-  header: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#2a2a35', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#2a2a35', alignItems: 'center', justifyContent: 'center' },
-  backText: { color: 'white', fontSize: 22, fontWeight: '700' },
-  headerTitle: { color: 'white', fontSize: 18, fontWeight: '800' },
-  bellBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#2a2a35', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  dot: { position: 'absolute', top: 7, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: '#f87171' },
-  content: { padding: 20, paddingBottom: 42 },
-  heroCard: { backgroundColor: '#2a2a35', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#393948', flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  badge: { color: '#5eead4', fontSize: 11, fontWeight: '800', marginBottom: 8 },
-  heroTitle: { color: 'white', fontSize: 22, fontWeight: '900' },
-  heroSub: { color: '#9a9aa8', fontSize: 12, lineHeight: 18, marginTop: 5 },
-  heroIcon: { width: 58, height: 58, borderRadius: 18, backgroundColor: 'rgba(124,111,205,0.18)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124,111,205,0.35)' },
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 18 },
-  statCard: { flex: 1, backgroundColor: '#2a2a35', borderRadius: 15, padding: 14, borderWidth: 1, borderColor: '#333' },
-  statValue: { color: 'white', fontSize: 23, fontWeight: '900' },
-  statLabel: { color: '#888', fontSize: 10, marginTop: 2 },
-  sectionLabel: { color: '#888', fontSize: 12, fontWeight: '800', marginBottom: 10 },
-  navCard: { backgroundColor: '#2a2a35', borderRadius: 15, padding: 14, borderWidth: 1, borderColor: '#333', marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  navIconBox: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  navIcon: { fontSize: 22 },
-  navTitle: { color: 'white', fontSize: 14, fontWeight: '900' },
-  navSub: { color: '#888', fontSize: 11, marginTop: 3 },
-  arrow: { color: '#666', fontSize: 24, fontWeight: '300' },
-  activityCard: { backgroundColor: 'rgba(124,111,205,0.14)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(124,111,205,0.32)', marginTop: 4 },
-  sectionTitle: { color: 'white', fontSize: 15, fontWeight: '900', marginBottom: 10 },
-  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' },
-  activityIcon: { fontSize: 20, width: 28, textAlign: 'center' },
-  activityTitle: { color: 'white', fontSize: 12, fontWeight: '800' },
-  activitySub: { color: '#a6a6b5', fontSize: 11, marginTop: 2 },
-});
